@@ -4,6 +4,7 @@ import (
 	"os"
 	"fmt"
 	"io"
+	"strconv"
 	"net/http"
 	"github.com/codegangsta/cli"
 	"github.com/go-martini/martini"
@@ -12,7 +13,10 @@ import (
 )
 
 
-func startServer() {
+func startServer(port int) {
+
+	os.Setenv("PORT", strconv.Itoa(port))
+
 		m := martini.Classic()
 	m.Use(render.Renderer(render.Options{
 	Directory: "templates", // Specify what path to load the templates from.
@@ -58,7 +62,7 @@ func main() {
 
 	c, err := config.LoadConfig("./conf.yaml")
 	if err != nil {
-		fmt.Println("Error loading config file:", err)
+//		fmt.Println("Error loading config file:", err)
 	}
 
 	println(c)
@@ -69,17 +73,47 @@ func main() {
 	app.Version = "0.0.1"
 
 	app.Flags = []cli.Flag {
-		cli.BoolFlag {
-			Name:  "d, daemon",
-			Usage: "Enable daemon mode",
+		cli.IntFlag {
+			Name: "int",
+			Value: 10,
+			Usage: "test in",
 		},
 	}
+
+	app.Commands = []cli.Command{
+		{
+			Name:      "push",
+			ShortName: "p",
+			Usage:     "push an image package or a crane package to the crane server",
+			Flags: []cli.Flag {
+				cli.IntFlag {
+					Name: "addint",
+					Value: 10,
+					Usage: "test in",
+				},
+			},
+			Action: func(c *cli.Context) {
+				println("Push task: ", c.Args().First())
+			},
+		},
+		{
+			Name:		"server",
+			ShortName:	"s",
+			Usage:		"start crane server",
+			Flags: []cli.Flag {
+				cli.IntFlag {
+					Name: "p, port",
+					Value: 2475,
+					Usage: "port to listen on (default 2475)",
+				},
+			},
+			Action: func(c *cli.Context) {
+				startServer(c.Int("port"));
+			},
+		},
+	}
+
 	app.Action = func(c *cli.Context) {
-
-		if c.GlobalBool("d") {
-			startServer()
-		} else {
-
 
 		if len(c.Args()) <= 0 {
 			cli.ShowAppHelp(c)
@@ -88,7 +122,6 @@ func main() {
 			println(c.Bool("d"))
 
 			println("boom! I say!")
-		}
 		}
 
 	}
