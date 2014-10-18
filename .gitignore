@@ -5,3 +5,5 @@ src/github.com
 src/gopkg.in
 *.iml
 .idea
+data
+*.tar.gz

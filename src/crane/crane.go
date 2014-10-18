@@ -3,25 +3,40 @@ package main
 import (
 	"os"
 	"fmt"
+	"bytes"
 	"io"
 	"log"
-	"strconv"
 	"strings"
+	"strconv"
 	"net/http"
-	"archive/tar"
-	"compress/gzip"
+	"mime/multipart"
+	"path/filepath"
 	"github.com/codegangsta/cli"
 	"github.com/go-martini/martini"
 	"github.com/martini-contrib/render"
-	"config"
+//	"wayoos.com/config"
+	"wayoos.com/compress"
+	"wayoos.com/config"
 )
 
 
 func startServer(port int) {
 
-	os.Setenv("PORT", strconv.Itoa(port))
+	config.InitDataPath()
 
-		m := martini.Classic()
+	fmt.Printf("dataPath=%s", config.DataPath)
+	fmt.Println()
+
+
+	os.Setenv("PORT", strconv.Itoa(port))
+	os.Setenv("HOST", "localhost")
+
+
+	os.Setenv("MARTINI_ENV", martini.Prod)
+
+	martini.Env = martini.Prod
+
+	m := martini.Classic()
 	m.Use(render.Renderer(render.Options{
 	Directory: "templates", // Specify what path to load the templates from.
 	Layout: "layout", // Specify a layout template. Layouts can call {{ yield }} to render the current template.
@@ -33,17 +48,36 @@ func startServer(port int) {
 			})
 
 	m.Post("/up", func(w http.ResponseWriter, r *http.Request) {
-			fmt.Printf("%v\n", "p./up")
+			fmt.Printf("%v\n", "p./up" + r.Method)
+
+			for key, val := range r.Header {
+				fmt.Printf("%v\n", key)
+				fmt.Printf("%v\n", val)
+			}
+
+			err := r.ParseForm();
+			if err != nil {
+				log.Println(err)
+			}
+
+			for key, val := range r.Form {
+				fmt.Printf("%v\n", key)
+				fmt.Printf("%v\n", val)
+			}
 
 			file, header, err := r.FormFile("file")
-//			defer file.Close()
 
 			if err != nil {
 				fmt.Fprintln(w, err)
 				return
 			}
 
-			out, err := os.Create("/tmp/file")
+			defer file.Close()
+
+			//
+			loadArchiveName := config.DataPath+"/"+header.Filename
+
+			out, err := os.Create(loadArchiveName)
 			if err != nil {
 				fmt.Fprintf(w, "Failed to open the file for writing")
 				return
@@ -56,81 +90,56 @@ func startServer(port int) {
 
 			// the header contains useful info, like the original file name
 			fmt.Fprintf(w, "File %s uploaded successfully.", header.Filename)
+
+			compress.UnTarGz(loadArchiveName, config.DataPath)
+//			compress.UnGz(loadArchiveName)
 		})
 
 		m.Run()
 }
 
-func handleError( _e error ) {
-	if _e != nil {
-		log.Fatal( _e )
+
+// Creates a new file upload http request with optional extra params
+func newfileUploadRequest(uri string, params map[string]string, paramName, path string) (*http.Request, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
 	}
-}
+	defer file.Close()
 
-func TarGzWrite( _path string, tw *tar.Writer, fi os.FileInfo ) {
-	fr, err := os.Open( _path )
-	handleError( err )
-	defer fr.Close()
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
 
-	h := new( tar.Header )
-	h.Name = _path
-	//fi.Name()
-	h.Size = fi.Size()
-	h.Mode = int64( fi.Mode() )
-	h.ModTime = fi.ModTime()
-
-	err = tw.WriteHeader( h )
-	handleError( err )
-
-	_, err = io.Copy( tw, fr )
-	handleError( err )
-}
-
-func IterDirectory( dirPath string, tw *tar.Writer ) {
-	dir, err := os.Open( dirPath )
-	handleError( err )
-	defer dir.Close()
-	fis, err := dir.Readdir( 0 )
-	handleError( err )
-	for _, fi := range fis {
-		curPath := dirPath + "/" + fi.Name()
-		if fi.IsDir() {
-			//TarGzWrite( curPath, tw, fi )
-			IterDirectory( curPath, tw )
-		} else {
-			fmt.Printf( "adding... %s\n", curPath )
-			TarGzWrite( curPath, tw, fi )
-		}
+	part, err := writer.CreateFormFile(paramName, filepath.Base(path))
+	if err != nil {
+		return nil, err
 	}
-}
+	_, err = io.Copy(part, file)
 
-func TarGz( outFilePath string, inPath string ) {
-	// file write
-	fw, err := os.Create( outFilePath )
-	handleError( err )
-	defer fw.Close()
+	for key, val := range params {
+		_ = writer.WriteField(key, val)
+	}
+	err = writer.Close()
+	if err != nil {
+		return nil, err
+	}
 
-	// gzip write
-	gw := gzip.NewWriter( fw )
-	defer gw.Close()
+	request, err := http.NewRequest("POST", uri, body)
 
-	// tar write
-	tw := tar.NewWriter( gw )
-	defer tw.Close()
+	request.Header.Set("Content-Type", writer.FormDataContentType())
 
-	IterDirectory( inPath, tw )
-
-	fmt.Println( "tar.gz ok" )
+	return request, err
 }
 
 func main() {
 
-	c, err := config.LoadConfig("./conf.yaml")
-	if err != nil {
+//	c, err := config.LoadConfig("./conf.yaml")
+//	if err != nil {
 //		fmt.Println("Error loading config file:", err)
-	}
+//	}
 
-	println(c)
+	fmt.Printf("dataPath=%s", config.DataPath)
+	fmt.Println()
 
 	app := cli.NewApp()
 	app.Name = "Crane"
@@ -138,10 +147,10 @@ func main() {
 	app.Version = "0.0.1"
 
 	app.Flags = []cli.Flag {
-		cli.IntFlag {
-			Name: "int",
-			Value: 10,
-			Usage: "test in",
+		cli.StringFlag {
+			Name: "host, H",
+			Value: "http://localhost:2475",
+			Usage: "Host",
 		},
 	}
 
@@ -149,7 +158,8 @@ func main() {
 		{
 			Name:      "push",
 			ShortName: "p",
-			Usage:     "push an image package or a crane package to the crane server",
+			Usage: "crane push LOAD[:TAG] PATH",
+			Description:  "push an image package or a crane package to the crane server",
 			Flags: []cli.Flag {
 				cli.IntFlag {
 					Name: "addint",
@@ -158,13 +168,67 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) {
-				println("Push task: ", c.Args().First())
 
-				// tar directory
+				if (c.Args().Present()) {
+					println("Push task: ", c.Args().First())
 
-				targetFilePath := "test.tar.gz"
-				inputDirPath := "haproxy/"
-				TarGz( targetFilePath, strings.TrimRight( inputDirPath, "/" ) )
+					loadName := c.Args().First();
+
+					dirPath := c.Args().Get(1);
+
+					_, err := os.Open( dirPath )
+					if err != nil {
+						log.Fatal(err)
+					}
+
+					println("Error but continue")
+
+					// tar directory
+
+					targetFilePath := loadName + ".tar.gz"
+					inputDirPath := dirPath
+
+					//dir, err := os.Open( dirPath )
+
+					compress.TarGz( targetFilePath, strings.TrimRight( inputDirPath, "/" ) )
+
+//					fileArchive, err := os.Open(targetFilePath)
+//					if err != nil {
+//						log.Fatal(err)
+//					}
+
+					path, _ := os.Getwd()
+					path += "/"+targetFilePath
+					extraParams := map[string]string {
+						"title":       "My Document",
+						"author":      "Matt Aimonetti",
+						"description": "A document with all the Go programming language secrets",
+					}
+					request, err := newfileUploadRequest("http://localhost:2475/up", extraParams, "file", path)
+					if err != nil {
+						log.Fatal(err)
+					}
+					client := &http.Client{}
+
+					resp, err := client.Do(request)
+					if err != nil {
+						log.Fatal(err)
+					} else {
+						body := &bytes.Buffer{}
+						_, err := body.ReadFrom(resp.Body)
+						if err != nil {
+							log.Fatal(err)
+						}
+						resp.Body.Close()
+						fmt.Println(resp.StatusCode)
+						fmt.Println(resp.Header)
+						fmt.Println(body)
+					}
+				} else {
+					cli.ShowCommandHelp(c, "push");
+				}
+
+
 
 			},
 		},
