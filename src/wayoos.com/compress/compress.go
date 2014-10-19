@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 	"archive/tar"
 	"compress/gzip"
 	"path/filepath"
@@ -17,13 +18,15 @@ func handleError( _e error ) {
 	}
 }
 
-func TarGzWrite( _path string, tw *tar.Writer, fi os.FileInfo ) {
+func TarGzWrite(rootPath string, _path string, tw *tar.Writer, fi os.FileInfo ) {
 	fr, err := os.Open( _path )
 	handleError( err )
 	defer fr.Close()
 
 	h := new( tar.Header )
-	h.Name = _path
+	tarPath := strings.TrimPrefix(_path, rootPath+"/")
+
+	h.Name = tarPath
 	//fi.Name()
 	h.Size = fi.Size()
 	h.Mode = int64( fi.Mode() )
@@ -36,7 +39,7 @@ func TarGzWrite( _path string, tw *tar.Writer, fi os.FileInfo ) {
 	handleError( err )
 }
 
-func IterDirectory( dirPath string, tw *tar.Writer ) {
+func IterDirectory(rootPath string, dirPath string, tw *tar.Writer ) {
 	dir, err := os.Open( dirPath )
 	handleError( err )
 	defer dir.Close()
@@ -45,32 +48,24 @@ func IterDirectory( dirPath string, tw *tar.Writer ) {
 	for _, fi := range fis {
 		curPath := dirPath + "/" + fi.Name()
 		if fi.IsDir() {
-			//TarGzWrite( curPath, tw, fi )
-			IterDirectory( curPath, tw )
+			IterDirectory(rootPath, curPath, tw )
 		} else {
-			fmt.Printf( "adding... %s\n", curPath )
-			TarGzWrite( curPath, tw, fi )
+			//fmt.Printf( "adding... %s\n", curPath )
+			TarGzWrite( rootPath, curPath, tw, fi )
 		}
 	}
 }
 
-func TarGz( outFilePath string, inPath string ) {
-	// file write
-	fw, err := os.Create( outFilePath )
-	handleError( err )
-	defer fw.Close()
-
+func TarGz(path string, outFilePath io.Writer ) {
 	// gzip write
-	gw := gzip.NewWriter( fw )
+	gw := gzip.NewWriter( outFilePath )
 	defer gw.Close()
 
 	// tar write
 	tw := tar.NewWriter( gw )
 	defer tw.Close()
 
-	IterDirectory( inPath, tw )
-
-	fmt.Println( "tar.gz ok" )
+	IterDirectory(path, path, tw )
 }
 
 func UnTarGz( tarFilePath string, inPath string ) {

@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"io"
 	"log"
-	"strings"
 	"strconv"
 	"net/http"
 	"mime/multipart"
@@ -17,6 +16,7 @@ import (
 //	"wayoos.com/config"
 	"wayoos.com/compress"
 	"wayoos.com/config"
+	"io/ioutil"
 )
 
 
@@ -143,7 +143,7 @@ func main() {
 
 	app := cli.NewApp()
 	app.Name = "Crane"
-	app.Usage = "make an explosive entrance"
+	app.Usage = "crane [command]"
 	app.Version = "0.0.1"
 
 	app.Flags = []cli.Flag {
@@ -158,7 +158,7 @@ func main() {
 		{
 			Name:      "push",
 			ShortName: "p",
-			Usage: "crane push LOAD[:TAG] PATH",
+			Usage: "crane push PATH",
 			Description:  "push an image package or a crane package to the crane server",
 			Flags: []cli.Flag {
 				cli.IntFlag {
@@ -172,39 +172,45 @@ func main() {
 				if (c.Args().Present()) {
 					println("Push task: ", c.Args().First())
 
-					loadName := c.Args().First();
+					path := c.Args().First();
 
-					dirPath := c.Args().Get(1);
-
-					_, err := os.Open( dirPath )
+					loadPath, err := filepath.Abs(path)
 					if err != nil {
 						log.Fatal(err)
 					}
 
-					println("Error but continue")
+					loadPathFileInfo, err := os.Stat(loadPath)
+					if err != nil {
+						log.Fatal(err)
+					}
 
-					// tar directory
+					if !loadPathFileInfo.IsDir() {
+						log.Fatal("Path is not a directory")
+					}
 
-					targetFilePath := loadName + ".tar.gz"
-					inputDirPath := dirPath
+					loadCompressedFile, err := ioutil.TempFile("", "crane")
+					if err != nil {
+						log.Fatal(err)
+					}
+					loadCompressedFilePath := loadCompressedFile.Name()
+					defer func() {
+						loadCompressedFile.Close()
+						fmt.Println(loadCompressedFilePath)
+//						err = os.Remove(loadCompressedFilePath)
+//						if (err != nil) {
+//							log.Fatal(err)
+//						}
+					}()
 
-					//dir, err := os.Open( dirPath )
+					compress.TarGz( loadPath, loadCompressedFile )
 
-					compress.TarGz( targetFilePath, strings.TrimRight( inputDirPath, "/" ) )
-
-//					fileArchive, err := os.Open(targetFilePath)
-//					if err != nil {
-//						log.Fatal(err)
-//					}
-
-					path, _ := os.Getwd()
-					path += "/"+targetFilePath
+					// send the file over http
 					extraParams := map[string]string {
 						"title":       "My Document",
 						"author":      "Matt Aimonetti",
 						"description": "A document with all the Go programming language secrets",
 					}
-					request, err := newfileUploadRequest("http://localhost:2475/up", extraParams, "file", path)
+					request, err := newfileUploadRequest("http://localhost:2475/up", extraParams, "file", loadCompressedFilePath)
 					if err != nil {
 						log.Fatal(err)
 					}
