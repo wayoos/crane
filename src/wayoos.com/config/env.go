@@ -7,6 +7,7 @@ import (
 
 var RootPath string
 var DataPath string
+var DataPathMode os.FileMode
 
 func Exists(path string) (bool) {
 	_, err := os.Stat(path)
@@ -26,9 +27,14 @@ func init() {
 func InitDataPath() {
 	DataPath = RootPath + "/data"
 
+	rootInfo, err := os.Stat(RootPath)
+	if err != nil {
+		panic(err)
+	}
+	DataPathMode = rootInfo.Mode()
+
 	if !Exists(DataPath) {
-		rootInfo,_ := os.Stat(RootPath)
-		os.Mkdir(DataPath, rootInfo.Mode())
+		os.Mkdir(DataPath, DataPathMode)
 	}
 }
 

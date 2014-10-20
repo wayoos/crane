@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"mime/multipart"
 	"path/filepath"
+	"crypto/rand"
+	"encoding/hex"
 	"github.com/codegangsta/cli"
 	"github.com/go-martini/martini"
 	"github.com/martini-contrib/render"
@@ -43,6 +45,7 @@ func startServer(port int) {
 	Charset: "UTF-8", // Sets encoding for json and html content-types.
 }))
 
+
 		m.Get("/", func() string {
 				return "Hello world!"
 			})
@@ -65,7 +68,7 @@ func startServer(port int) {
 				fmt.Printf("%v\n", val)
 			}
 
-			file, header, err := r.FormFile("file")
+			file, _, err := r.FormFile("file")
 
 			if err != nil {
 				fmt.Fprintln(w, err)
@@ -74,8 +77,24 @@ func startServer(port int) {
 
 			defer file.Close()
 
+			// create id and folder
+			c := 6
+			b := make([]byte, c)
+			_, err = rand.Read(b)
+			if err != nil {
+				fmt.Println("error:", err)
+			}
+			loadId := hex.EncodeToString(b)
+
+			loadDataPath := config.DataPath + "/" + loadId
+
+			err = os.MkdirAll(loadDataPath, config.DataPathMode)
+			if err != nil {
+				fmt.Println(err)
+			}
+
 			//
-			loadArchiveName := config.DataPath+"/"+header.Filename
+			loadArchiveName := loadDataPath + "/" + "load.tar.gz"
 
 			out, err := os.Create(loadArchiveName)
 			if err != nil {
@@ -88,11 +107,10 @@ func startServer(port int) {
 				fmt.Fprintln(w, err)
 			}
 
-			// the header contains useful info, like the original file name
-			fmt.Fprintf(w, "File %s uploaded successfully.", header.Filename)
+			// return loadId
+			fmt.Fprintf(w, "%s", loadId)
 
-			compress.UnTarGz(loadArchiveName, config.DataPath)
-//			compress.UnGz(loadArchiveName)
+			compress.UnTarGz(loadArchiveName, loadDataPath)
 		})
 
 		m.Run()
@@ -138,9 +156,6 @@ func main() {
 //		fmt.Println("Error loading config file:", err)
 //	}
 
-	fmt.Printf("dataPath=%s", config.DataPath)
-	fmt.Println()
-
 	app := cli.NewApp()
 	app.Name = "Crane"
 	app.Usage = "crane [command]"
@@ -170,7 +185,6 @@ func main() {
 			Action: func(c *cli.Context) {
 
 				if (c.Args().Present()) {
-					println("Push task: ", c.Args().First())
 
 					path := c.Args().First();
 
@@ -195,11 +209,10 @@ func main() {
 					loadCompressedFilePath := loadCompressedFile.Name()
 					defer func() {
 						loadCompressedFile.Close()
-						fmt.Println(loadCompressedFilePath)
-//						err = os.Remove(loadCompressedFilePath)
-//						if (err != nil) {
-//							log.Fatal(err)
-//						}
+						err = os.Remove(loadCompressedFilePath)
+						if (err != nil) {
+							log.Fatal(err)
+						}
 					}()
 
 					compress.TarGz( loadPath, loadCompressedFile )
@@ -226,8 +239,9 @@ func main() {
 							log.Fatal(err)
 						}
 						resp.Body.Close()
-						fmt.Println(resp.StatusCode)
-						fmt.Println(resp.Header)
+						//TODO check status code
+						//fmt.Println(resp.StatusCode)
+						//fmt.Println(resp.Header)
 						fmt.Println(body)
 					}
 				} else {
@@ -253,6 +267,23 @@ func main() {
 				startServer(c.Int("port"));
 			},
 		},
+		{
+			Name:		"exec",
+			ShortName:	"e",
+			Usage:		"crane exec LOADID command...",
+			Flags: []cli.Flag {
+				cli.IntFlag {
+					Name: "p, port",
+					Value: 2475,
+					Usage: "port to listen on (default 2475)",
+				},
+			},
+			Action: func(c *cli.Context) {
+				fmt.Println("Execute cmd")
+
+			},
+		},
+
 	}
 
 	app.Action = func(c *cli.Context) {
