@@ -1,8 +1,7 @@
 bin
 pkg
 haproxy
-src/github.com
-src/gopkg.in
+out
 *.iml
 .idea
 data

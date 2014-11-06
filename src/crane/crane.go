@@ -1,26 +1,31 @@
 package main
 
 import (
-	"os"
-	"fmt"
 	"bytes"
-	"io"
-	"log"
-	"strconv"
-	"net/http"
-	"mime/multipart"
-	"path/filepath"
+	"container/list"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"github.com/codegangsta/cli"
 	"github.com/go-martini/martini"
+	"github.com/jmcvetta/napping"
 	"github.com/martini-contrib/render"
-//	"wayoos.com/config"
+	"io"
+	"log"
+	"mime/multipart"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	//	"wayoos.com/config"
+	"io/ioutil"
 	"wayoos.com/compress"
 	"wayoos.com/config"
-	"io/ioutil"
 )
 
+type load_record struct {
+	LoadId string
+}
 
 func startServer(port int) {
 
@@ -29,93 +34,112 @@ func startServer(port int) {
 	fmt.Printf("dataPath=%s", config.DataPath)
 	fmt.Println()
 
-
 	os.Setenv("PORT", strconv.Itoa(port))
 	os.Setenv("HOST", "localhost")
-
 
 	os.Setenv("MARTINI_ENV", martini.Prod)
 
 	martini.Env = martini.Prod
 
 	m := martini.Classic()
+
 	m.Use(render.Renderer(render.Options{
-	Directory: "templates", // Specify what path to load the templates from.
-	Layout: "layout", // Specify a layout template. Layouts can call {{ yield }} to render the current template.
-	Charset: "UTF-8", // Sets encoding for json and html content-types.
-}))
+		//	Directory: "templates", // Specify what path to load the templates from.
+		//	Layout: "layout", // Specify a layout template. Layouts can call {{ yield }} to render the current template.
+		Charset: "UTF-8", // Sets encoding for json and html content-types.
+	}))
 
+	m.Get("/ps", func(r render.Render) {
 
-		m.Get("/", func() string {
-				return "Hello world!"
-			})
+		l := list.New()
+
+		files, _ := ioutil.ReadDir(config.DataPath)
+		for _, f := range files {
+			if f.IsDir() {
+				fmt.Println(f.Name())
+				l.PushBack(f.Name())
+			}
+		}
+
+		var loadRecords = make([]load_record, l.Len())
+
+		idx := 0
+		for e := l.Front(); e != nil; e = e.Next() {
+
+			loadId := e.Value.(string)
+
+			loadRecords[idx] = load_record{loadId}
+			idx += 1
+		}
+
+		r.JSON(200, loadRecords)
+	})
 
 	m.Post("/up", func(w http.ResponseWriter, r *http.Request) {
-			fmt.Printf("%v\n", "p./up" + r.Method)
+		fmt.Printf("%v\n", "p./up"+r.Method)
 
-			for key, val := range r.Header {
-				fmt.Printf("%v\n", key)
-				fmt.Printf("%v\n", val)
-			}
+		for key, val := range r.Header {
+			fmt.Printf("%v\n", key)
+			fmt.Printf("%v\n", val)
+		}
 
-			err := r.ParseForm();
-			if err != nil {
-				log.Println(err)
-			}
+		err := r.ParseForm()
+		if err != nil {
+			log.Println(err)
+		}
 
-			for key, val := range r.Form {
-				fmt.Printf("%v\n", key)
-				fmt.Printf("%v\n", val)
-			}
+		for key, val := range r.Form {
+			fmt.Printf("%v\n", key)
+			fmt.Printf("%v\n", val)
+		}
 
-			file, _, err := r.FormFile("file")
+		file, _, err := r.FormFile("file")
 
-			if err != nil {
-				fmt.Fprintln(w, err)
-				return
-			}
+		if err != nil {
+			fmt.Fprintln(w, err)
+			return
+		}
 
-			defer file.Close()
+		defer file.Close()
 
-			// create id and folder
-			c := 6
-			b := make([]byte, c)
-			_, err = rand.Read(b)
-			if err != nil {
-				fmt.Println("error:", err)
-			}
-			loadId := hex.EncodeToString(b)
+		// create id and folder
+		c := 6
+		b := make([]byte, c)
+		_, err = rand.Read(b)
+		if err != nil {
+			fmt.Println("error:", err)
+		}
+		loadId := hex.EncodeToString(b)
 
-			loadDataPath := config.DataPath + "/" + loadId
+		loadDataPath := config.DataPath + "/" + loadId
 
-			err = os.MkdirAll(loadDataPath, config.DataPathMode)
-			if err != nil {
-				fmt.Println(err)
-			}
+		err = os.MkdirAll(loadDataPath, config.DataPathMode)
+		if err != nil {
+			fmt.Println(err)
+		}
 
-			//
-			loadArchiveName := loadDataPath + "/" + "load.tar.gz"
+		//
+		loadArchiveName := loadDataPath + "/" + "load.tar.gz"
 
-			out, err := os.Create(loadArchiveName)
-			if err != nil {
-				fmt.Fprintf(w, "Failed to open the file for writing")
-				return
-			}
-			defer out.Close()
-			_, err = io.Copy(out, file)
-			if err != nil {
-				fmt.Fprintln(w, err)
-			}
+		out, err := os.Create(loadArchiveName)
+		if err != nil {
+			fmt.Fprintf(w, "Failed to open the file for writing")
+			return
+		}
+		defer out.Close()
+		_, err = io.Copy(out, file)
+		if err != nil {
+			fmt.Fprintln(w, err)
+		}
 
-			// return loadId
-			fmt.Fprintf(w, "%s", loadId)
+		// return loadId
+		fmt.Fprintf(w, "%s", loadId)
 
-			compress.UnTarGz(loadArchiveName, loadDataPath)
-		})
+		compress.UnTarGz(loadArchiveName, loadDataPath)
+	})
 
-		m.Run()
+	m.Run()
 }
-
 
 // Creates a new file upload http request with optional extra params
 func newfileUploadRequest(uri string, params map[string]string, paramName, path string) (*http.Request, error) {
@@ -151,19 +175,19 @@ func newfileUploadRequest(uri string, params map[string]string, paramName, path 
 
 func main() {
 
-//	c, err := config.LoadConfig("./conf.yaml")
-//	if err != nil {
-//		fmt.Println("Error loading config file:", err)
-//	}
+	//	c, err := config.LoadConfig("./conf.yaml")
+	//	if err != nil {
+	//		fmt.Println("Error loading config file:", err)
+	//	}
 
 	app := cli.NewApp()
 	app.Name = "Crane"
 	app.Usage = "crane [command]"
 	app.Version = "0.0.1"
 
-	app.Flags = []cli.Flag {
-		cli.StringFlag {
-			Name: "host, H",
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  "host, H",
 			Value: "http://localhost:2475",
 			Usage: "Host",
 		},
@@ -171,22 +195,22 @@ func main() {
 
 	app.Commands = []cli.Command{
 		{
-			Name:      "push",
-			ShortName: "p",
-			Usage: "crane push PATH",
-			Description:  "push an image package or a crane package to the crane server",
-			Flags: []cli.Flag {
-				cli.IntFlag {
-					Name: "addint",
+			Name:        "push",
+			ShortName:   "p",
+			Usage:       "crane push PATH",
+			Description: "push an image package or a crane package to the crane server",
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "addint",
 					Value: 10,
 					Usage: "test in",
 				},
 			},
 			Action: func(c *cli.Context) {
 
-				if (c.Args().Present()) {
+				if c.Args().Present() {
 
-					path := c.Args().First();
+					path := c.Args().First()
 
 					loadPath, err := filepath.Abs(path)
 					if err != nil {
@@ -210,15 +234,15 @@ func main() {
 					defer func() {
 						loadCompressedFile.Close()
 						err = os.Remove(loadCompressedFilePath)
-						if (err != nil) {
+						if err != nil {
 							log.Fatal(err)
 						}
 					}()
 
-					compress.TarGz( loadPath, loadCompressedFile )
+					compress.TarGz(loadPath, loadCompressedFile)
 
 					// send the file over http
-					extraParams := map[string]string {
+					extraParams := map[string]string{
 						"title":       "My Document",
 						"author":      "Matt Aimonetti",
 						"description": "A document with all the Go programming language secrets",
@@ -245,35 +269,33 @@ func main() {
 						fmt.Println(body)
 					}
 				} else {
-					cli.ShowCommandHelp(c, "push");
+					cli.ShowCommandHelp(c, "push")
 				}
-
-
 
 			},
 		},
 		{
-			Name:		"server",
-			ShortName:	"s",
-			Usage:		"start crane server",
-			Flags: []cli.Flag {
-				cli.IntFlag {
-					Name: "p, port",
+			Name:      "server",
+			ShortName: "s",
+			Usage:     "start crane server",
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "p, port",
 					Value: 2475,
 					Usage: "port to listen on (default 2475)",
 				},
 			},
 			Action: func(c *cli.Context) {
-				startServer(c.Int("port"));
+				startServer(c.Int("port"))
 			},
 		},
 		{
-			Name:		"exec",
-			ShortName:	"e",
-			Usage:		"crane exec LOADID command...",
-			Flags: []cli.Flag {
-				cli.IntFlag {
-					Name: "p, port",
+			Name:      "exec",
+			ShortName: "e",
+			Usage:     "crane exec LOADID command...",
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "p, port",
 					Value: 2475,
 					Usage: "port to listen on (default 2475)",
 				},
@@ -283,7 +305,21 @@ func main() {
 
 			},
 		},
+		{
+			Name:  "ps",
+			Usage: "crane ps",
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "p, port",
+					Value: 2475,
+					Usage: "port to listen on (default 2475)",
+				},
+			},
+			Action: func(c *cli.Context) {
+				fmt.Println("PS cmd")
 
+			},
+		},
 	}
 
 	app.Action = func(c *cli.Context) {
