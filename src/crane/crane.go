@@ -5,6 +5,7 @@ import (
 	"container/list"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"github.com/codegangsta/cli"
 	"github.com/go-martini/martini"
@@ -17,14 +18,22 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	//	"wayoos.com/config"
 	"io/ioutil"
+	"text/tabwriter"
 	"wayoos.com/compress"
 	"wayoos.com/config"
 )
 
-type load_record struct {
-	LoadId string
+//type load_record struct {
+//	LoadId string
+//}
+
+type LoadData struct {
+	ID   string
+	Name string
+	Tag  string
 }
 
 func startServer(port int) {
@@ -61,14 +70,33 @@ func startServer(port int) {
 			}
 		}
 
-		var loadRecords = make([]load_record, l.Len())
+		var loadRecords = make([]LoadData, l.Len())
 
 		idx := 0
 		for e := l.Front(); e != nil; e = e.Next() {
 
 			loadId := e.Value.(string)
 
-			loadRecords[idx] = load_record{loadId}
+			fmt.Println("LoadId: " + loadId)
+
+			inJson, err := os.Open(config.DataPath + "/" + loadId + ".json")
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			defer inJson.Close()
+
+			decode := json.NewDecoder(inJson)
+			var loadData LoadData
+			err = decode.Decode(&loadData)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			fmt.Println(loadData.Name)
+
+			loadRecords[idx] = loadData
 			idx += 1
 		}
 
@@ -76,21 +104,12 @@ func startServer(port int) {
 	})
 
 	m.Post("/up", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Printf("%v\n", "p./up"+r.Method)
 
-		for key, val := range r.Header {
-			fmt.Printf("%v\n", key)
-			fmt.Printf("%v\n", val)
-		}
+		nameTag := r.Header.Get("Load-tag")
 
 		err := r.ParseForm()
 		if err != nil {
 			log.Println(err)
-		}
-
-		for key, val := range r.Form {
-			fmt.Printf("%v\n", key)
-			fmt.Printf("%v\n", val)
 		}
 
 		file, _, err := r.FormFile("file")
@@ -112,6 +131,7 @@ func startServer(port int) {
 		loadId := hex.EncodeToString(b)
 
 		loadDataPath := config.DataPath + "/" + loadId
+		loadDataJson := config.DataPath + "/" + loadId + ".json"
 
 		err = os.MkdirAll(loadDataPath, config.DataPathMode)
 		if err != nil {
@@ -132,17 +152,45 @@ func startServer(port int) {
 			fmt.Fprintln(w, err)
 		}
 
+		compress.UnTarGz(loadArchiveName, loadDataPath)
+
+		split := strings.Split(nameTag, ":")
+		name := split[0]
+		tag := ""
+		if len(split) > 1 {
+			tag = split[1]
+		}
+
+		loadData := LoadData{
+			ID:   loadId,
+			Name: name,
+			Tag:  tag,
+		}
+
+		outJson, err := os.Create(loadDataJson)
+		if err != nil {
+			fmt.Fprintf(w, "Failed to open the file for writing")
+			return
+		}
+		defer outJson.Close()
+
+		enc := json.NewEncoder(outJson)
+
+		enc.Encode(loadData)
+
+		//		bl, _ := json.Marshal(loadData)
+		//		os.Stdout.Write(bl)
+
 		// return loadId
 		fmt.Fprintf(w, "%s", loadId)
 
-		compress.UnTarGz(loadArchiveName, loadDataPath)
 	})
 
 	m.Run()
 }
 
 // Creates a new file upload http request with optional extra params
-func newfileUploadRequest(uri string, params map[string]string, paramName, path string) (*http.Request, error) {
+func newfileUploadRequest(uri string, headers map[string]string, paramName, path string) (*http.Request, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -158,9 +206,6 @@ func newfileUploadRequest(uri string, params map[string]string, paramName, path 
 	}
 	_, err = io.Copy(part, file)
 
-	for key, val := range params {
-		_ = writer.WriteField(key, val)
-	}
 	err = writer.Close()
 	if err != nil {
 		return nil, err
@@ -169,6 +214,10 @@ func newfileUploadRequest(uri string, params map[string]string, paramName, path 
 	request, err := http.NewRequest("POST", uri, body)
 
 	request.Header.Set("Content-Type", writer.FormDataContentType())
+
+	for key, val := range headers {
+		request.Header.Add(key, val)
+	}
 
 	return request, err
 }
@@ -200,15 +249,16 @@ func main() {
 			Usage:       "crane push PATH",
 			Description: "push an image package or a crane package to the crane server",
 			Flags: []cli.Flag{
-				cli.IntFlag{
-					Name:  "addint",
-					Value: 10,
-					Usage: "test in",
+				cli.StringFlag{
+					Name:  "tag, t",
+					Value: "",
+					Usage: "Load name (and optionally a tag) to be applied to the resulting",
 				},
 			},
 			Action: func(c *cli.Context) {
 
 				if c.Args().Present() {
+					host := c.GlobalString("host")
 
 					path := c.Args().First()
 
@@ -241,13 +291,13 @@ func main() {
 
 					compress.TarGz(loadPath, loadCompressedFile)
 
+					tag := c.String("tag")
+
 					// send the file over http
-					extraParams := map[string]string{
-						"title":       "My Document",
-						"author":      "Matt Aimonetti",
-						"description": "A document with all the Go programming language secrets",
+					headers := map[string]string{
+						"load-tag": tag,
 					}
-					request, err := newfileUploadRequest("http://localhost:2475/up", extraParams, "file", loadCompressedFilePath)
+					request, err := newfileUploadRequest(host+"/up", headers, "file", loadCompressedFilePath)
 					if err != nil {
 						log.Fatal(err)
 					}
@@ -308,16 +358,26 @@ func main() {
 		{
 			Name:  "ps",
 			Usage: "crane ps",
-			Flags: []cli.Flag{
-				cli.IntFlag{
-					Name:  "p, port",
-					Value: 2475,
-					Usage: "port to listen on (default 2475)",
-				},
-			},
 			Action: func(c *cli.Context) {
-				fmt.Println("PS cmd")
 
+				host := c.GlobalString("host")
+				result := []LoadData{}
+				resp, err := napping.Get(host+"/ps", nil, &result, nil)
+				if err != nil {
+					panic(err)
+				}
+				if resp.Status() == 200 {
+					w := new(tabwriter.Writer)
+
+					// Format in tab-separated columns with a tab stop of 8.
+					w.Init(os.Stdout, 0, 8, 0, '\t', 0)
+					fmt.Fprintln(w, "NAME\tTAG\tLOAD ID")
+					for _, loadData := range result {
+						fmt.Fprintln(w, loadData.Name+"\t"+loadData.Tag+"\t"+loadData.ID)
+					}
+					w.Flush()
+
+				}
 			},
 		},
 	}
