@@ -121,17 +121,29 @@ func startServer(port int) {
 
 		defer file.Close()
 
+		var loadId string = ""
+		var loadDataPath string = ""
 		// create id and folder
-		c := 6
-		b := make([]byte, c)
-		_, err = rand.Read(b)
-		if err != nil {
-			fmt.Println("error:", err)
-		}
-		loadId := hex.EncodeToString(b)
+		for {
+			c := 6
+			b := make([]byte, c)
+			_, err = rand.Read(b)
+			if err != nil {
+				fmt.Println("error:", err)
+			}
+			loadId = hex.EncodeToString(b)
 
-		loadDataPath := config.DataPath + "/" + loadId
+			loadDataPath = config.DataPath + "/" + loadId
+
+			if _, err := os.Stat(loadDataPath); os.IsNotExist(err) {
+				// path/to/whatever does not exist
+				break
+			}
+
+		}
 		loadDataJson := config.DataPath + "/" + loadId + ".json"
+
+		fmt.Println("mkdir " + loadDataPath)
 
 		err = os.MkdirAll(loadDataPath, config.DataPathMode)
 		if err != nil {
@@ -139,7 +151,7 @@ func startServer(port int) {
 		}
 
 		//
-		loadArchiveName := loadDataPath + "/" + "load.tar.gz"
+		loadArchiveName := loadDataPath + "/" + "load.zip"
 
 		out, err := os.Create(loadArchiveName)
 		if err != nil {
@@ -152,7 +164,8 @@ func startServer(port int) {
 			fmt.Fprintln(w, err)
 		}
 
-		compress.UnTarGz(loadArchiveName, loadDataPath)
+		//		compress.UnTarGz(loadArchiveName, loadDataPath)
+		compress.Unzip(loadArchiveName, loadDataPath)
 
 		split := strings.Split(nameTag, ":")
 		name := split[0]
@@ -289,7 +302,9 @@ func main() {
 						}
 					}()
 
-					compress.TarGz(loadPath, loadCompressedFile)
+					//					compress.TarGz(loadPath, loadCompressedFile)
+
+					compress.ZipFolder(loadPath, loadCompressedFilePath)
 
 					tag := c.String("tag")
 
