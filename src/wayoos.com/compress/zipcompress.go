@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -124,7 +125,13 @@ func Unzip(src, dest string) error {
 		}
 	}()
 
-	os.MkdirAll(dest, 0755)
+	//	os.MkdirAll(dest, 0755)
+
+	destInfo, err := os.Stat(dest)
+	if err != nil {
+		return err
+	}
+	destMode := destInfo.Mode()
 
 	// Closure to address file descriptors issue with all the deferred .Close() methods
 	extractAndWriteFile := func(f *zip.File) error {
@@ -138,12 +145,24 @@ func Unzip(src, dest string) error {
 			}
 		}()
 
-		path := filepath.Join(dest, f.Name)
+		//println("zip entry: " + f.Name)
+
+		outpath := filepath.Join(dest, f.Name)
+
+		//println("zip entry path: " + outpath)
+
+		pathonly := path.Dir(outpath)
+
+		//println("zip entry abs path: " + pathonly)
+
+		if _, err := os.Stat(pathonly); os.IsNotExist(err) {
+			os.MkdirAll(pathonly, destMode)
+		}
 
 		if f.FileInfo().IsDir() {
-			os.MkdirAll(path, f.Mode())
+			os.MkdirAll(outpath, f.Mode())
 		} else {
-			f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+			f, err := os.OpenFile(outpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
 			if err != nil {
 				return err
 			}

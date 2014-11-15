@@ -10,12 +10,14 @@ import (
 	"github.com/codegangsta/cli"
 	"github.com/go-martini/martini"
 	"github.com/jmcvetta/napping"
+	"github.com/martini-contrib/binding"
 	"github.com/martini-contrib/render"
 	"io"
 	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -34,6 +36,27 @@ type LoadData struct {
 	ID   string
 	Name string
 	Tag  string
+}
+
+type ExecData struct {
+	LoadId string
+	Cmd    []string
+}
+
+type ExecResult struct {
+	ExitCode int
+	Out      string
+}
+
+func CToGoString(c []byte) string {
+	n := -1
+	for i, b := range c {
+		if b == 0 {
+			break
+		}
+		n = i
+	}
+	return string(c[:n+1])
 }
 
 func startServer(port int) {
@@ -57,6 +80,49 @@ func startServer(port int) {
 		//	Layout: "layout", // Specify a layout template. Layouts can call {{ yield }} to render the current template.
 		Charset: "UTF-8", // Sets encoding for json and html content-types.
 	}))
+
+	m.Post("/exec", binding.Bind(ExecData{}), func(execData ExecData, r render.Render) {
+		fmt.Printf("LoadId: %s\n",
+			execData.LoadId)
+		cmds := execData.Cmd
+
+		program := cmds[0]
+
+		for i := range cmds {
+			println(cmds[i])
+		}
+
+		var programArgs = make([]string, len(cmds)-1)
+
+		for i := 0; i < len(programArgs); i++ {
+			println(cmds[i+1])
+			programArgs[i] = cmds[i+1]
+		}
+
+		fmt.Printf("Program: %s\n", program)
+
+		cmd := exec.Command(program, programArgs...)
+		cmd.Dir = config.DataPath + "/" + execData.LoadId
+		cmd.Stdin = os.Stdin
+		//		cmd.Stdout = os.Stdout
+		//		cmd.Stderr = os.Stderr
+		//		err := cmd.Run()
+		outByte, err := cmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("%v\n", err)
+		}
+
+		outString := CToGoString(outByte)
+
+		println(outString)
+
+		execResult := ExecResult{
+			ExitCode: 0,
+			Out:      outString,
+		}
+
+		r.JSON(200, execResult)
+	})
 
 	m.Get("/ps", func(r render.Render) {
 
@@ -165,7 +231,12 @@ func startServer(port int) {
 		}
 
 		//		compress.UnTarGz(loadArchiveName, loadDataPath)
-		compress.Unzip(loadArchiveName, loadDataPath)
+		err = compress.Unzip(loadArchiveName, loadDataPath)
+		if err != nil {
+			fmt.Println(err)
+			fmt.Fprintf(w, "Failed to extract file")
+			return
+		}
 
 		split := strings.Split(nameTag, ":")
 		name := split[0]
@@ -358,15 +429,53 @@ func main() {
 			Name:      "exec",
 			ShortName: "e",
 			Usage:     "crane exec LOADID command...",
-			Flags: []cli.Flag{
-				cli.IntFlag{
-					Name:  "p, port",
-					Value: 2475,
-					Usage: "port to listen on (default 2475)",
-				},
-			},
 			Action: func(c *cli.Context) {
-				fmt.Println("Execute cmd")
+				loadId := c.Args().First()
+
+				//fmt.Println("Execute cmd in " + loadId)
+
+				host := c.GlobalString("host")
+
+				var cmds []string = c.Args().Tail()
+
+				l := list.New()
+
+				for i := range cmds {
+					//					println(cmds[i])
+
+					val := cmds[i]
+					split := strings.Split(val, " ")
+					for si := range split {
+						l.PushBack(split[si])
+					}
+				}
+
+				cmds = make([]string, l.Len())
+
+				idx := 0
+				for e := l.Front(); e != nil; e = e.Next() {
+					cmd := e.Value.(string)
+					cmds[idx] = cmd
+					idx++
+				}
+
+				//				for i := range cmds {
+				//					println(cmds[i])
+				//				}
+
+				execData := ExecData{
+					LoadId: loadId,
+					Cmd:    cmds,
+				}
+
+				result := ExecResult{}
+				resp, err := napping.Post(host+"/exec", &execData, &result, nil)
+				if err != nil {
+					panic(err)
+				}
+				if resp.Status() == 200 {
+					fmt.Println(result.Out)
+				}
 
 			},
 		},
@@ -403,9 +512,7 @@ func main() {
 			cli.ShowAppHelp(c)
 		} else {
 
-			println(c.Bool("d"))
-
-			println("boom! I say!")
+			println("Invalid command")
 		}
 
 	}
