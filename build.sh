@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# I commit this source into crane repo. I'm not happy with this but what's append if github repo are closed
 #go get github.com/codegangsta/cli
 #go get github.com/go-martini/martini
 #go get github.com/martini-contrib/render

@@ -12,6 +12,7 @@ import (
 	"github.com/jmcvetta/napping"
 	"github.com/martini-contrib/binding"
 	"github.com/martini-contrib/render"
+	"github.com/wayoos/crane/api/client"
 	"io"
 	"io/ioutil"
 	"log"
@@ -306,12 +307,6 @@ func newfileUploadRequest(uri string, headers map[string]string, paramName, path
 }
 
 func main() {
-
-	//	c, err := config.LoadConfig("./conf.yaml")
-	//	if err != nil {
-	//		fmt.Println("Error loading config file:", err)
-	//	}
-
 	app := cli.NewApp()
 	app.Name = "Crane"
 	app.Usage = "crane [command]"
@@ -326,6 +321,12 @@ func main() {
 	}
 
 	app.Commands = []cli.Command{
+		{
+			Name:        "up",
+			Usage:       "crane up []",
+			Description: "Create and start container",
+			Action:      client.UpCommand,
+		},
 		{
 			Name:        "push",
 			ShortName:   "p",
