@@ -59,5 +59,13 @@ func UpCommand(c *cli.Context) {
 	}
 
 	// now we can run the container
+	outLines, err = docker.Run(path, imageId)
+	if err != nil {
+		for _, line := range outLines {
+			println(line)
+		}
+
+		log.Fatal(err)
+	}
 
 }

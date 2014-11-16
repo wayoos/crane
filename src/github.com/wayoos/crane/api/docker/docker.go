@@ -35,5 +35,5 @@ func Build(path string, repositoryName string) (out []string, err error) {
 }
 
 func Run(path string, repositoryName string) (out []string, err error) {
-	return ExecuteDocker(path, "run", "", repositoryName)
+	return ExecuteDocker(path, "run", "-name", repositoryName, repositoryName)
 }
