@@ -323,7 +323,7 @@ func main() {
 	app.Commands = []cli.Command{
 		{
 			Name:        "up",
-			Usage:       "crane up []",
+			Usage:       "crane up",
 			Description: "Create and start container",
 			Action:      client.UpCommand,
 		},

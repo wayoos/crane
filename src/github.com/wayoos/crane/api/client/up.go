@@ -43,9 +43,6 @@ func UpCommand(c *cli.Context) {
 
 	// if the image is not present build it
 
-	fmt.Print("Find image: ")
-	fmt.Println(alreadyBuild)
-
 	if !alreadyBuild {
 		outLines, err = docker.Build(path, imageId)
 		if err != nil {
@@ -59,13 +56,23 @@ func UpCommand(c *cli.Context) {
 	}
 
 	// now we can run the container
-	outLines, err = docker.Run(path, imageId)
-	if err != nil {
-		for _, line := range outLines {
-			println(line)
+	isRunning, err := docker.IsRunning(imageId)
+	if !isRunning {
+
+		isExited, err := docker.IsExited(imageId)
+		if isExited {
+			fmt.Println("TODO implement docker start")
+		} else {
+			outLines, err = docker.Run(path, imageId)
+			for _, line := range outLines {
+				println(line)
+			}
 		}
 
-		log.Fatal(err)
+		if err != nil {
+
+			log.Fatal(err)
+		}
 	}
 
 }
