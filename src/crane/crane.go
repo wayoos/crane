@@ -328,6 +328,12 @@ func main() {
 			Action:      client.UpCommand,
 		},
 		{
+			Name:        "rm",
+			Usage:       "crane rm",
+			Description: "Stop and remove container",
+			Action:      client.RmCommand,
+		},
+		{
 			Name:        "push",
 			ShortName:   "p",
 			Usage:       "crane push PATH",

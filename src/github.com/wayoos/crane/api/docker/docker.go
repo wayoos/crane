@@ -62,3 +62,15 @@ func IsExited(name string) (running bool, err error) {
 func Run(path string, repositoryName string) (out []string, err error) {
 	return ExecuteDocker(path, "run", "--detach=true", "--name", repositoryName, repositoryName)
 }
+
+func Start(container string) (out []string, err error) {
+	return ExecuteDocker("", "start", container)
+}
+
+func Stop(container string) (out []string, err error) {
+	return ExecuteDocker("", "stop", container)
+}
+
+func RemoveContainer(container string) (out []string, err error) {
+	return ExecuteDocker("", "rm", container)
+}

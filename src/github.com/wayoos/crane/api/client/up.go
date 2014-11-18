@@ -61,7 +61,7 @@ func UpCommand(c *cli.Context) {
 
 		isExited, err := docker.IsExited(imageId)
 		if isExited {
-			fmt.Println("TODO implement docker start")
+			docker.Start(imageId)
 		} else {
 			outLines, err = docker.Run(path, imageId)
 			for _, line := range outLines {
