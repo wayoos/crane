@@ -3,275 +3,23 @@ package main
 import (
 	"bytes"
 	"container/list"
-	"crypto/rand"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"github.com/codegangsta/cli"
-	"github.com/go-martini/martini"
 	"github.com/jmcvetta/napping"
-	"github.com/martini-contrib/binding"
-	"github.com/martini-contrib/render"
 	"github.com/wayoos/crane/api/client"
+	"github.com/wayoos/crane/api/domain"
+	"github.com/wayoos/crane/api/server"
 	"io"
 	"io/ioutil"
 	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 	"wayoos.com/compress"
-	"wayoos.com/config"
 )
-
-//type load_record struct {
-//	LoadId string
-//}
-
-type LoadData struct {
-	ID   string
-	Name string
-	Tag  string
-}
-
-type ExecData struct {
-	LoadId string
-	Cmd    []string
-}
-
-type ExecResult struct {
-	ExitCode int
-	Out      string
-}
-
-func CToGoString(c []byte) string {
-	n := -1
-	for i, b := range c {
-		if b == 0 {
-			break
-		}
-		n = i
-	}
-	return string(c[:n+1])
-}
-
-func startServer(port int) {
-
-	config.InitDataPath()
-
-	fmt.Printf("dataPath=%s", config.DataPath)
-	fmt.Println()
-
-	os.Setenv("PORT", strconv.Itoa(port))
-	os.Setenv("HOST", "localhost")
-
-	os.Setenv("MARTINI_ENV", martini.Prod)
-
-	martini.Env = martini.Prod
-
-	m := martini.Classic()
-
-	m.Use(render.Renderer(render.Options{
-		//	Directory: "templates", // Specify what path to load the templates from.
-		//	Layout: "layout", // Specify a layout template. Layouts can call {{ yield }} to render the current template.
-		Charset: "UTF-8", // Sets encoding for json and html content-types.
-	}))
-
-	m.Post("/exec", binding.Bind(ExecData{}), func(execData ExecData, r render.Render) {
-		fmt.Printf("LoadId: %s\n",
-			execData.LoadId)
-		cmds := execData.Cmd
-
-		program := cmds[0]
-
-		for i := range cmds {
-			println(cmds[i])
-		}
-
-		var programArgs = make([]string, len(cmds)-1)
-
-		for i := 0; i < len(programArgs); i++ {
-			println(cmds[i+1])
-			programArgs[i] = cmds[i+1]
-		}
-
-		fmt.Printf("Program: %s\n", program)
-
-		cmd := exec.Command(program, programArgs...)
-		cmd.Dir = config.DataPath + "/" + execData.LoadId
-		cmd.Stdin = os.Stdin
-		//		cmd.Stdout = os.Stdout
-		//		cmd.Stderr = os.Stderr
-		//		err := cmd.Run()
-		outByte, err := cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("%v\n", err)
-		}
-
-		outString := CToGoString(outByte)
-
-		println(outString)
-
-		execResult := ExecResult{
-			ExitCode: 0,
-			Out:      outString,
-		}
-
-		r.JSON(200, execResult)
-	})
-
-	m.Get("/ps", func(r render.Render) {
-
-		l := list.New()
-
-		files, _ := ioutil.ReadDir(config.DataPath)
-		for _, f := range files {
-			if f.IsDir() {
-				fmt.Println(f.Name())
-				l.PushBack(f.Name())
-			}
-		}
-
-		var loadRecords = make([]LoadData, l.Len())
-
-		idx := 0
-		for e := l.Front(); e != nil; e = e.Next() {
-
-			loadId := e.Value.(string)
-
-			fmt.Println("LoadId: " + loadId)
-
-			inJson, err := os.Open(config.DataPath + "/" + loadId + ".json")
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			defer inJson.Close()
-
-			decode := json.NewDecoder(inJson)
-			var loadData LoadData
-			err = decode.Decode(&loadData)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-
-			fmt.Println(loadData.Name)
-
-			loadRecords[idx] = loadData
-			idx += 1
-		}
-
-		r.JSON(200, loadRecords)
-	})
-
-	m.Post("/up", func(w http.ResponseWriter, r *http.Request) {
-
-		nameTag := r.Header.Get("Load-tag")
-
-		err := r.ParseForm()
-		if err != nil {
-			log.Println(err)
-		}
-
-		file, _, err := r.FormFile("file")
-
-		if err != nil {
-			fmt.Fprintln(w, err)
-			return
-		}
-
-		defer file.Close()
-
-		var loadId string = ""
-		var loadDataPath string = ""
-		// create id and folder
-		for {
-			c := 6
-			b := make([]byte, c)
-			_, err = rand.Read(b)
-			if err != nil {
-				fmt.Println("error:", err)
-			}
-			loadId = hex.EncodeToString(b)
-
-			loadDataPath = config.DataPath + "/" + loadId
-
-			if _, err := os.Stat(loadDataPath); os.IsNotExist(err) {
-				// path/to/whatever does not exist
-				break
-			}
-
-		}
-		loadDataJson := config.DataPath + "/" + loadId + ".json"
-
-		fmt.Println("mkdir " + loadDataPath)
-
-		err = os.MkdirAll(loadDataPath, config.DataPathMode)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		//
-		loadArchiveName := loadDataPath + "/" + "load.zip"
-
-		out, err := os.Create(loadArchiveName)
-		if err != nil {
-			fmt.Fprintf(w, "Failed to open the file for writing")
-			return
-		}
-		defer out.Close()
-		_, err = io.Copy(out, file)
-		if err != nil {
-			fmt.Fprintln(w, err)
-		}
-
-		//		compress.UnTarGz(loadArchiveName, loadDataPath)
-		err = compress.Unzip(loadArchiveName, loadDataPath)
-		if err != nil {
-			fmt.Println(err)
-			fmt.Fprintf(w, "Failed to extract file")
-			return
-		}
-
-		split := strings.Split(nameTag, ":")
-		name := split[0]
-		tag := ""
-		if len(split) > 1 {
-			tag = split[1]
-		}
-
-		loadData := LoadData{
-			ID:   loadId,
-			Name: name,
-			Tag:  tag,
-		}
-
-		outJson, err := os.Create(loadDataJson)
-		if err != nil {
-			fmt.Fprintf(w, "Failed to open the file for writing")
-			return
-		}
-		defer outJson.Close()
-
-		enc := json.NewEncoder(outJson)
-
-		enc.Encode(loadData)
-
-		//		bl, _ := json.Marshal(loadData)
-		//		os.Stdout.Write(bl)
-
-		// return loadId
-		fmt.Fprintf(w, "%s", loadId)
-
-	})
-
-	m.Run()
-}
 
 // Creates a new file upload http request with optional extra params
 func newfileUploadRequest(uri string, headers map[string]string, paramName, path string) (*http.Request, error) {
@@ -308,7 +56,7 @@ func newfileUploadRequest(uri string, headers map[string]string, paramName, path
 
 func main() {
 	app := cli.NewApp()
-	app.Name = "Crane"
+	app.Name = "crane"
 	app.Usage = "crane [command]"
 	app.Version = "0.0.1"
 
@@ -322,10 +70,10 @@ func main() {
 
 	app.Commands = []cli.Command{
 		{
-			Name:        "up",
-			Usage:       "crane up",
-			Description: "Create and start container",
-			Action:      client.UpCommand,
+			Name:  "up",
+			Usage: "Create and start container",
+			//			Description: "Create and start container",
+			Action: client.UpCommand,
 		},
 		{
 			Name:        "rm",
@@ -426,10 +174,13 @@ func main() {
 					Value: 2475,
 					Usage: "port to listen on (default 2475)",
 				},
+				cli.StringFlag{
+					Name:  "g, graph",
+					Value: "/var/lib/crane",
+					Usage: "Path to use as the root of the Docker runtime",
+				},
 			},
-			Action: func(c *cli.Context) {
-				startServer(c.Int("port"))
-			},
+			Action: server.ServerCommand,
 		},
 		{
 			Name:      "exec",
@@ -469,12 +220,12 @@ func main() {
 				//					println(cmds[i])
 				//				}
 
-				execData := ExecData{
+				execData := domain.ExecData{
 					LoadId: loadId,
 					Cmd:    cmds,
 				}
 
-				result := ExecResult{}
+				result := domain.ExecResult{}
 				resp, err := napping.Post(host+"/exec", &execData, &result, nil)
 				if err != nil {
 					panic(err)
@@ -491,7 +242,7 @@ func main() {
 			Action: func(c *cli.Context) {
 
 				host := c.GlobalString("host")
-				result := []LoadData{}
+				result := []domain.LoadData{}
 				resp, err := napping.Get(host+"/ps", nil, &result, nil)
 				if err != nil {
 					panic(err)
