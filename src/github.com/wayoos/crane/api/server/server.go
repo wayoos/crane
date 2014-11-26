@@ -25,12 +25,19 @@ import (
 )
 
 func ServerCommand(c *cli.Context) {
-	startServer(c.Int("port"))
+	port := c.Int("port")
+
+	var craneDir string = ""
+	if c.IsSet("crane-dir") {
+		craneDir = c.String("crane-dir")
+	}
+
+	startServer(port, craneDir)
 }
 
-func startServer(port int) {
+func startServer(port int, craneDir string) {
 
-	config.InitDataPath()
+	config.InitDataPath(craneDir)
 
 	fmt.Printf("dataPath=%s", config.DataPath)
 	fmt.Println()

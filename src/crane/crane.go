@@ -175,9 +175,9 @@ func main() {
 					Usage: "port to listen on (default 2475)",
 				},
 				cli.StringFlag{
-					Name:  "g, graph",
-					Value: "/var/lib/crane",
-					Usage: "Path to use as the root of the Docker runtime",
+					Name:  "c, crane-dir",
+					Value: "current directory",
+					Usage: "Path to use as the crane data directory",
 				},
 			},
 			Action: server.ServerCommand,
