@@ -11,6 +11,8 @@ import (
 	"github.com/martini-contrib/binding"
 	"github.com/martini-contrib/render"
 	"github.com/wayoos/crane/api/domain"
+	"github.com/wayoos/crane/compress"
+	"github.com/wayoos/crane/config"
 	"github.com/wayoos/crane/util"
 	"io"
 	"io/ioutil"
@@ -20,8 +22,6 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"wayoos.com/compress"
-	"wayoos.com/config"
 )
 
 func ServerCommand(c *cli.Context) {
@@ -56,6 +56,8 @@ func startServer(port int, craneDir string) {
 		//	Layout: "layout", // Specify a layout template. Layouts can call {{ yield }} to render the current template.
 		Charset: "UTF-8", // Sets encoding for json and html content-types.
 	}))
+
+	m.Post("/load/:loadid", Up)
 
 	m.Post("/exec", binding.Bind(domain.ExecData{}), func(execData domain.ExecData, r render.Render) {
 		fmt.Printf("LoadId: %s\n",
@@ -145,7 +147,7 @@ func startServer(port int, craneDir string) {
 		r.JSON(200, loadRecords)
 	})
 
-	m.Post("/up", func(w http.ResponseWriter, r *http.Request) {
+	m.Post("/push", func(w http.ResponseWriter, r *http.Request) {
 
 		nameTag := r.Header.Get("Load-tag")
 

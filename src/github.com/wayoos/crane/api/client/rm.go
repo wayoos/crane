@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"github.com/codegangsta/cli"
 	"github.com/wayoos/crane/api/docker"
+	"github.com/wayoos/crane/config"
 	"log"
 	"os"
 	"path/filepath"
-	"wayoos.com/config"
 )
 
 func RmCommand(c *cli.Context) {

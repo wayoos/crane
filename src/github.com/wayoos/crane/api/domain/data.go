@@ -1,5 +1,11 @@
 package domain
 
+type AppError struct {
+	Error   error
+	Message string
+	Code    int
+}
+
 type LoadData struct {
 	ID   string
 	Name string

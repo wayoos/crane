@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/codegangsta/cli"
+	"github.com/wayoos/crane/compress"
 	"io"
 	"io/ioutil"
 	"log"
@@ -11,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"wayoos.com/compress"
 )
 
 // Creates a new file upload http request with optional extra params
@@ -91,7 +91,7 @@ func PushCommand(c *cli.Context) {
 		headers := map[string]string{
 			"load-tag": tag,
 		}
-		request, err := newfileUploadRequest(host+"/up", headers, "file", loadCompressedFilePath)
+		request, err := newfileUploadRequest(host+"/push", headers, "file", loadCompressedFilePath)
 		if err != nil {
 			log.Fatal(err)
 		}

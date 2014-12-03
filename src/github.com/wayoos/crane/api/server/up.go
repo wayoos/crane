@@ -1,49 +1,25 @@
-package client
+package server
 
 import (
-	"fmt"
-	"github.com/codegangsta/cli"
-	"github.com/jmcvetta/napping"
+	"github.com/go-martini/martini"
 	"github.com/wayoos/crane/api/docker"
+	"github.com/wayoos/crane/api/domain"
 	"github.com/wayoos/crane/config"
 	"log"
-	"os"
 	"path/filepath"
 	"strings"
 )
 
-func UpCommand(c *cli.Context) {
-	var loadId string = ""
-	if c.Args().Present() {
-		loadId = c.Args().First()
-	}
+func Up(params martini.Params) (int, string) {
 
-	host := c.GlobalString("host")
-	resp, err := napping.Post(host+"/load/"+loadId, nil, nil, nil)
-	if err != nil {
-		log.Println("Error: failed to create and start container")
-		os.Exit(1)
-	}
-	if resp.Status() == 200 {
+	loadId := params["loadid"]
 
-	} else {
-		fmt.Println("Error response from crane daemon: " + resp.RawText())
-		log.Println("Error: failed to create and start container")
-		os.Exit(1)
-	}
-
+	return 404, "No such dockload: " + loadId
 }
 
-func UplCommand(c *cli.Context) {
-
-	path, _ := os.Getwd()
-	if c.Args().Present() {
-		path = c.Args().First()
-		path, _ = filepath.Abs(path)
-	}
+func ExecuteUp(path string) *domain.AppError {
 	if !config.Exists(path + "/Dockerfile") {
-		fmt.Println("Dockerfile not found in " + path)
-		return
+		return &domain.AppError{nil, "Dockerfile not found in " + path, 404}
 	}
 
 	// we are using the parent directory of the Dockerfile
@@ -97,4 +73,5 @@ func UplCommand(c *cli.Context) {
 		}
 	}
 
+	return nil
 }

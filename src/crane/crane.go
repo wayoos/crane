@@ -1,15 +1,10 @@
 package main
 
 import (
-	"container/list"
-	"fmt"
 	"github.com/codegangsta/cli"
-	"github.com/jmcvetta/napping"
 	"github.com/wayoos/crane/api/client"
-	"github.com/wayoos/crane/api/domain"
 	"github.com/wayoos/crane/api/server"
 	"os"
-	"strings"
 )
 
 func main() {
@@ -28,22 +23,9 @@ func main() {
 
 	app.Commands = []cli.Command{
 		{
-			Name:  "lup",
-			Usage: "Create and start container",
-			//			Description: "Create and start container",
-			Action: client.UpCommand,
-		},
-		{
-			Name:  "up",
-			Usage: "Create and start container",
-			//			Description: "Create and start container",
-			Action: client.UpCommand,
-		},
-		{
-			Name:        "rm",
-			Usage:       "crane rm",
-			Description: "Stop and remove container",
-			Action:      client.RmCommand,
+			Name:   "ps",
+			Usage:  "crane ps",
+			Action: client.PsCommand,
 		},
 		{
 			Name:        "push",
@@ -58,6 +40,12 @@ func main() {
 				},
 			},
 			Action: client.PushCommand,
+		},
+		{
+			Name:        "rm",
+			Usage:       "crane rm",
+			Description: "Stop and remove container",
+			Action:      client.RmCommand,
 		},
 		{
 			Name:      "server",
@@ -78,63 +66,15 @@ func main() {
 			Action: server.ServerCommand,
 		},
 		{
-			Name:      "exec",
-			ShortName: "e",
-			Usage:     "crane exec LOADID command...",
-			Action: func(c *cli.Context) {
-				loadId := c.Args().First()
-
-				//fmt.Println("Execute cmd in " + loadId)
-
-				host := c.GlobalString("host")
-
-				var cmds []string = c.Args().Tail()
-
-				l := list.New()
-
-				for i := range cmds {
-					//					println(cmds[i])
-
-					val := cmds[i]
-					split := strings.Split(val, " ")
-					for si := range split {
-						l.PushBack(split[si])
-					}
-				}
-
-				cmds = make([]string, l.Len())
-
-				idx := 0
-				for e := l.Front(); e != nil; e = e.Next() {
-					cmd := e.Value.(string)
-					cmds[idx] = cmd
-					idx++
-				}
-
-				//				for i := range cmds {
-				//					println(cmds[i])
-				//				}
-
-				execData := domain.ExecData{
-					LoadId: loadId,
-					Cmd:    cmds,
-				}
-
-				result := domain.ExecResult{}
-				resp, err := napping.Post(host+"/exec", &execData, &result, nil)
-				if err != nil {
-					panic(err)
-				}
-				if resp.Status() == 200 {
-					fmt.Println(result.Out)
-				}
-
-			},
+			Name:   "up",
+			Usage:  "Create and start container",
+			Action: client.UpCommand,
 		},
 		{
-			Name:   "ps",
-			Usage:  "crane ps",
-			Action: client.PsCommand,
+			Name:      "up-local",
+			ShortName: "upl",
+			Usage:     "Create and start container localy",
+			Action:    client.UplCommand,
 		},
 	}
 
@@ -151,3 +91,59 @@ func main() {
 
 	app.Run(os.Args)
 }
+
+/*
+{
+Name:      "exec",
+ShortName: "e",
+Usage:     "crane exec LOADID command...",
+Action: func(c *cli.Context) {
+loadId := c.Args().First()
+
+//fmt.Println("Execute cmd in " + loadId)
+
+host := c.GlobalString("host")
+
+var cmds []string = c.Args().Tail()
+
+l := list.New()
+
+for i := range cmds {
+//					println(cmds[i])
+
+val := cmds[i]
+split := strings.Split(val, " ")
+for si := range split {
+l.PushBack(split[si])
+}
+}
+
+cmds = make([]string, l.Len())
+
+idx := 0
+for e := l.Front(); e != nil; e = e.Next() {
+cmd := e.Value.(string)
+cmds[idx] = cmd
+idx++
+}
+
+//				for i := range cmds {
+//					println(cmds[i])
+//				}
+
+execData := domain.ExecData{
+LoadId: loadId,
+Cmd:    cmds,
+}
+
+result := domain.ExecResult{}
+resp, err := napping.Post(host+"/exec", &execData, &result, nil)
+if err != nil {
+panic(err)
+}
+if resp.Status() == 200 {
+fmt.Println(result.Out)
+}
+
+},
+},*/

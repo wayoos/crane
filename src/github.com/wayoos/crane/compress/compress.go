@@ -4,12 +4,12 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"fmt"
+	"github.com/wayoos/crane/config"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
-	"wayoos.com/config"
 )
 
 func handleError(_e error) {
