@@ -12,9 +12,16 @@ import (
 
 func Up(params martini.Params) (int, string) {
 
-	loadId := params["loadid"]
+	dockloadId := params["loadid"]
 
-	return 404, "No such dockload: " + loadId
+	dockloadPath := config.DataPath + "/" + dockloadId
+
+	appErr := ExecuteUp(dockloadPath)
+
+	if appErr != nil {
+		return appErr.Code, appErr.Message
+	}
+	return 204, ""
 }
 
 func ExecuteUp(path string) *domain.AppError {
@@ -68,8 +75,7 @@ func ExecuteUp(path string) *domain.AppError {
 		}
 
 		if err != nil {
-
-			log.Fatal(err)
+			log.Println(err)
 		}
 	}
 

@@ -24,8 +24,8 @@ func UpCommand(c *cli.Context) {
 		log.Println("Error: failed to create and start container")
 		os.Exit(1)
 	}
-	if resp.Status() == 200 {
-
+	if resp.Status() == 204 {
+		fmt.Println(loadId)
 	} else {
 		fmt.Println("Error response from crane daemon: " + resp.RawText())
 		log.Println("Error: failed to create and start container")

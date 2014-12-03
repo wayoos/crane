@@ -23,6 +23,11 @@ func main() {
 
 	app.Commands = []cli.Command{
 		{
+			Name:   "build",
+			Usage:  "crane ps",
+			Action: client.PsCommand,
+		},
+		{
 			Name:   "ps",
 			Usage:  "crane ps",
 			Action: client.PsCommand,
