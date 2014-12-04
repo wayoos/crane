@@ -91,7 +91,7 @@ func PushCommand(c *cli.Context) {
 		headers := map[string]string{
 			"load-tag": tag,
 		}
-		request, err := newfileUploadRequest(host+"/push", headers, "file", loadCompressedFilePath)
+		request, err := newfileUploadRequest(host+"/push/test", headers, "file", loadCompressedFilePath)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -113,7 +113,7 @@ func PushCommand(c *cli.Context) {
 			fmt.Println(body)
 		}
 	} else {
-		cli.ShowCommandHelp(c, "push")
+		cli.ShowCommandHelp(c, "build")
 	}
 
 }

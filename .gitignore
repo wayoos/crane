@@ -1,6 +1,7 @@
 bin
 pkg
 haproxy
+front-app
 out
 *.iml
 .idea

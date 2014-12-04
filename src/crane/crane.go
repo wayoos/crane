@@ -23,18 +23,8 @@ func main() {
 
 	app.Commands = []cli.Command{
 		{
-			Name:   "build",
-			Usage:  "crane ps",
-			Action: client.PsCommand,
-		},
-		{
-			Name:   "ps",
-			Usage:  "crane ps",
-			Action: client.PsCommand,
-		},
-		{
-			Name:        "push",
-			ShortName:   "p",
+			Name:        "build",
+			ShortName:   "b",
 			Usage:       "crane push PATH",
 			Description: "push an image package or a crane package to the crane server",
 			Flags: []cli.Flag{
@@ -45,6 +35,11 @@ func main() {
 				},
 			},
 			Action: client.PushCommand,
+		},
+		{
+			Name:   "ps",
+			Usage:  "crane ps",
+			Action: client.PsCommand,
 		},
 		{
 			Name:        "rm",
@@ -71,8 +66,15 @@ func main() {
 			Action: server.ServerCommand,
 		},
 		{
-			Name:   "up",
-			Usage:  "Create and start container",
+			Name:  "up",
+			Usage: "Create and start container",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "tag, t",
+					Value: "",
+					Usage: "Load name (and optionally a tag) to be applied to the resulting",
+				},
+			},
 			Action: client.UpCommand,
 		},
 		{
