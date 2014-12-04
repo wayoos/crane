@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Creates a new file upload http request with optional extra params
@@ -40,8 +41,10 @@ func newfileUploadRequest(uri string, headers map[string]string, paramName, path
 
 	request.Header.Set("Content-Type", writer.FormDataContentType())
 
-	for key, val := range headers {
-		request.Header.Add(key, val)
+	if headers != nil {
+		for key, val := range headers {
+			request.Header.Add(key, val)
+		}
 	}
 
 	return request, err
@@ -85,13 +88,21 @@ func PushCommand(c *cli.Context) {
 
 		compress.ZipFolder(loadPath, loadCompressedFilePath)
 
-		tag := c.String("tag")
+		urlPath := "/push"
+
+		if c.IsSet("tag") {
+			tag := c.String("tag")
+
+			tagSplit := strings.Split(tag, ":")
+			if len(tagSplit) > 1 {
+				urlPath += "/" + tagSplit[0] + "/" + tagSplit[1]
+			} else {
+				urlPath += "/" + tag
+			}
+		}
 
 		// send the file over http
-		headers := map[string]string{
-			"load-tag": tag,
-		}
-		request, err := newfileUploadRequest(host+"/push/test", headers, "file", loadCompressedFilePath)
+		request, err := newfileUploadRequest(host+urlPath, nil, "file", loadCompressedFilePath)
 		if err != nil {
 			log.Fatal(err)
 		}

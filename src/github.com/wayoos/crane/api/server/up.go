@@ -24,51 +24,24 @@ func Up(params martini.Params) (int, string) {
 	return 204, ""
 }
 
-func ExecuteUp(path string) *domain.AppError {
-	if !config.Exists(path + "/Dockerfile") {
-		return &domain.AppError{nil, "Dockerfile not found in " + path, 404}
+func ExecuteUp(dockloadId string) *domain.AppError {
+
+	appErr := BuildImage(dockloadId)
+	if appErr != nil {
+		return appErr
 	}
 
-	// we are using the parent directory of the Dockerfile
-	imageId := filepath.Base(path)
-
-	// check if an images is present with the
-	outLines, err := docker.ExecuteDocker(path, "images")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	alreadyBuild := false
-	for _, line := range outLines {
-		if strings.HasPrefix(line, imageId) {
-			alreadyBuild = true
-		}
-		//		println(line)
-	}
-
-	// if the image is not present build it
-
-	if !alreadyBuild {
-		outLines, err = docker.Build(path, imageId)
-		if err != nil {
-			for _, line := range outLines {
-				println(line)
-			}
-
-			log.Fatal(err)
-		}
-
-	}
+	dockloadPath := config.DataPath + "/" + dockloadId
 
 	// now we can run the container
-	isRunning, err := docker.IsRunning(imageId)
+	isRunning, _ := docker.IsRunning(dockloadId)
 	if !isRunning {
 
-		isExited, err := docker.IsExited(imageId)
+		isExited, err := docker.IsExited(dockloadId)
 		if isExited {
-			docker.Start(imageId)
+			docker.Start(dockloadId)
 		} else {
-			outLines, err = docker.Run(path, imageId)
+			outLines, _ := docker.Run(dockloadPath, dockloadId)
 			for _, line := range outLines {
 				println(line)
 			}
