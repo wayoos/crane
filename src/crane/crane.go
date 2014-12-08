@@ -34,7 +34,7 @@ func main() {
 					Usage: "Load name (and optionally a tag) to be applied to the resulting",
 				},
 			},
-			Action: client.PushCommand,
+			Action: client.BuildCommand,
 		},
 		{
 			Name:   "ps",

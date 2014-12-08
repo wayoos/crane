@@ -6,11 +6,31 @@ import (
 	"github.com/wayoos/crane/api/domain"
 	"github.com/wayoos/crane/config"
 	"log"
-	"path/filepath"
-	"strings"
+	"net/http"
 )
 
-func Up(params martini.Params) (int, string) {
+func Up(params martini.Params, r *http.Request) (int, string) {
+
+	tagName := params["name"]
+	tagVersion := params["tag"]
+
+	dockloadId, appErr := ExecuteBuild(tagName, tagVersion, r)
+
+	if appErr != nil {
+		return appErr.Code, appErr.Message
+	}
+
+	dockloadPath := config.DataPath + "/" + dockloadId
+
+	appErr = ExecuteUp(dockloadPath)
+	if appErr != nil {
+		return appErr.Code, appErr.Message
+	}
+
+	return 204, ""
+}
+
+func UpOnly(params martini.Params) (int, string) {
 
 	dockloadId := params["loadid"]
 

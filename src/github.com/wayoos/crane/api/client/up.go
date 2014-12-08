@@ -3,7 +3,6 @@ package client
 import (
 	"fmt"
 	"github.com/codegangsta/cli"
-	"github.com/jmcvetta/napping"
 	"github.com/wayoos/crane/api/docker"
 	"github.com/wayoos/crane/config"
 	"log"
@@ -12,6 +11,7 @@ import (
 	"strings"
 )
 
+/*
 func UpCommand(c *cli.Context) {
 	var loadId string = ""
 	if c.Args().Present() {
@@ -30,6 +30,26 @@ func UpCommand(c *cli.Context) {
 		fmt.Println("Error response from crane daemon: " + resp.RawText())
 		log.Println("Error: failed to create and start container")
 		os.Exit(1)
+	}
+
+}
+*/
+
+func UpCommand(c *cli.Context) {
+
+	if c.Args().Present() {
+		host := c.GlobalString("host")
+
+		path := c.Args().First()
+
+		var tag string
+		if c.IsSet("tag") {
+			tag = c.String("tag")
+		}
+
+		BuildSend("up", host, path, tag)
+	} else {
+		cli.ShowCommandHelp(c, "up")
 	}
 
 }

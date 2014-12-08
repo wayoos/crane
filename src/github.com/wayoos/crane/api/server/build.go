@@ -14,7 +14,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -23,7 +22,7 @@ func Build(params martini.Params, r *http.Request) (int, string) {
 	tagName := params["name"]
 	tagVersion := params["tag"]
 
-	appErr := ExecuteBuild(tagName, tagVersion, r)
+	_, appErr := ExecuteBuild(tagName, tagVersion, r)
 
 	if appErr != nil {
 		return appErr.Code, appErr.Message
@@ -31,19 +30,19 @@ func Build(params martini.Params, r *http.Request) (int, string) {
 	return 204, ""
 }
 
-func ExecuteBuild(tagName, tagVersion string, r *http.Request) *domain.AppError {
+func ExecuteBuild(tagName, tagVersion string, r *http.Request) (dockloadId string, errApp *domain.AppError) {
 
 	err := r.ParseForm()
 	if err != nil {
 		log.Println(err)
-		return &domain.AppError{nil, "Invalid zip file", 500}
+		return "", &domain.AppError{nil, "Invalid zip file", 500}
 	}
 
 	file, _, err := r.FormFile("file")
 
 	if err != nil {
 		log.Println(err)
-		return &domain.AppError{nil, "Invalid zip file", 500}
+		return "", &domain.AppError{nil, "Invalid zip file", 500}
 	}
 
 	defer file.Close()
@@ -82,20 +81,20 @@ func ExecuteBuild(tagName, tagVersion string, r *http.Request) *domain.AppError 
 
 	out, err := os.Create(loadArchiveName)
 	if err != nil {
-		return &domain.AppError{nil, "Failed to open the file for writing", 500}
+		return "", &domain.AppError{nil, "Failed to open the file for writing", 500}
 	}
 	defer out.Close()
 	_, err = io.Copy(out, file)
 	if err != nil {
 		log.Println(err)
-		return &domain.AppError{nil, "Open file error", 500}
+		return "", &domain.AppError{nil, "Open file error", 500}
 	}
 
 	//		compress.UnTarGz(loadArchiveName, loadDataPath)
 	err = compress.Unzip(loadArchiveName, loadDataPath)
 	if err != nil {
 		log.Println(err)
-		return &domain.AppError{nil, "Failed to extract file", 500}
+		return "", &domain.AppError{nil, "Failed to extract file", 500}
 	}
 
 	loadData := domain.LoadData{
@@ -107,7 +106,7 @@ func ExecuteBuild(tagName, tagVersion string, r *http.Request) *domain.AppError 
 	outJson, err := os.Create(loadDataJson)
 	if err != nil {
 		log.Println(err)
-		return &domain.AppError{nil, "Failed to create data file", 500}
+		return "", &domain.AppError{nil, "Failed to create data file", 500}
 	}
 	defer outJson.Close()
 
@@ -120,11 +119,11 @@ func ExecuteBuild(tagName, tagVersion string, r *http.Request) *domain.AppError 
 
 	appErr := BuildImage(loadId)
 	if appErr != nil {
-		return appErr
+		return "", appErr
 	}
 	// return loadId
 	// TODO find a better solution as using error return structure to return correct data
-	return &domain.AppError{nil, loadId, 200}
+	return loadId, &domain.AppError{nil, loadId, 200}
 }
 
 func BuildImage(dockloadId string) *domain.AppError {
