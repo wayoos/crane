@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/codegangsta/cli"
+	"github.com/wayoos/crane/api/domain"
 	"github.com/wayoos/crane/compress"
 	"io"
 	"io/ioutil"
@@ -62,31 +63,39 @@ func BuildCommand(c *cli.Context) {
 			tag = c.String("tag")
 		}
 
-		BuildSend("build", host, path, tag)
+		dockloadId, appErr := BuildSend("build", host, path, tag)
+
+		if appErr != nil {
+			log.Println("Error: failed to create images")
+			os.Exit(1)
+		}
+
+		fmt.Println(dockloadId)
+
 	} else {
 		cli.ShowCommandHelp(c, "build")
 	}
 
 }
 
-func BuildSend(command, host, path, tag string) {
+func BuildSend(command, host, path, tag string) (dockloadId string, appErr *domain.AppError) {
 	loadPath, err := filepath.Abs(path)
 	if err != nil {
-		log.Fatal(err)
+		return "", &domain.AppError{err, "Invalid path " + path, 500}
 	}
 
 	loadPathFileInfo, err := os.Stat(loadPath)
 	if err != nil {
-		log.Fatal(err)
+		return "", &domain.AppError{err, "Invalid path info " + loadPath, 500}
 	}
 
 	if !loadPathFileInfo.IsDir() {
-		log.Fatal("Path is not a directory")
+		return "", &domain.AppError{nil, "Invalid path is not a directory " + loadPath, 500}
 	}
 
 	loadCompressedFile, err := ioutil.TempFile("", "crane")
 	if err != nil {
-		log.Fatal(err)
+		return "", &domain.AppError{err, "Create temporary file error", 500}
 	}
 	loadCompressedFilePath := loadCompressedFile.Name()
 	defer func() {
@@ -96,8 +105,6 @@ func BuildSend(command, host, path, tag string) {
 			log.Fatal(err)
 		}
 	}()
-
-	//					compress.TarGz(loadPath, loadCompressedFile)
 
 	compress.ZipFolder(loadPath, loadCompressedFilePath)
 
@@ -116,23 +123,33 @@ func BuildSend(command, host, path, tag string) {
 	// send the file over http
 	request, err := newfileUploadRequest(host+urlPath, nil, "file", loadCompressedFilePath)
 	if err != nil {
-		log.Fatal(err)
+		return "", &domain.AppError{err, "Send file error", 500}
 	}
+
 	client := &http.Client{}
 
 	resp, err := client.Do(request)
 	if err != nil {
-		log.Fatal(err)
-	} else {
-		body := &bytes.Buffer{}
-		_, err := body.ReadFrom(resp.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-		resp.Body.Close()
-		//TODO check status code
-		//fmt.Println(resp.StatusCode)
-		//fmt.Println(resp.Header)
-		fmt.Println(body)
+		return "", &domain.AppError{err, "Send file error", 500}
 	}
+
+	body := &bytes.Buffer{}
+	_, err = body.ReadFrom(resp.Body)
+	if err != nil {
+		return "", &domain.AppError{err, "Send file error", 500}
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		fmt.Println("Error response from crane daemon: " + body.String())
+		log.Println("Error: failed to create and start container")
+		os.Exit(1)
+	}
+
+	//TODO check status code
+	//fmt.Println(resp.StatusCode)
+	//fmt.Println(resp.Header)
+	//	fmt.Println(body)
+
+	return body.String(), nil
 }

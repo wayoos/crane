@@ -4,8 +4,41 @@ import (
 	"github.com/codegangsta/cli"
 	"github.com/wayoos/crane/api/client"
 	"github.com/wayoos/crane/api/server"
+	"log"
 	"os"
+	"os/exec"
+	"syscall"
 )
+
+func main2() {
+	cmd := exec.Command("docker", "build")
+
+	//	if err := cmd.Start(); err != nil {
+	//		log.Fatalf("cmd.Start: %v")
+	//	}
+
+	//	cmd.Wait()
+
+	_, err := cmd.CombinedOutput()
+
+	if err != nil {
+		log.Println("err not nil")
+		log.Print(err)
+	}
+
+	if !cmd.ProcessState.Success() {
+		status := cmd.ProcessState.Sys().(syscall.WaitStatus)
+
+		log.Printf("Exit Status: %d", status.ExitStatus())
+	} else {
+		log.Println("Success")
+	}
+
+	status := cmd.ProcessState.Sys().(syscall.WaitStatus)
+
+	log.Printf("Exit Status: %d", status.ExitStatus())
+
+}
 
 func main() {
 	app := cli.NewApp()

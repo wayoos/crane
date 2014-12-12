@@ -69,11 +69,9 @@ func ExecuteBuild(tagName, tagVersion string, r *http.Request) (dockloadId strin
 	}
 	loadDataJson := config.DataPath + "/" + loadId + ".json"
 
-	fmt.Println("mkdir " + loadDataPath)
-
 	err = os.MkdirAll(loadDataPath, config.DataPathMode)
 	if err != nil {
-		fmt.Println(err)
+		return "", &domain.AppError{err, "Error creating dockload folder", 500}
 	}
 
 	//
@@ -86,27 +84,30 @@ func ExecuteBuild(tagName, tagVersion string, r *http.Request) (dockloadId strin
 	defer out.Close()
 	_, err = io.Copy(out, file)
 	if err != nil {
-		log.Println(err)
-		return "", &domain.AppError{nil, "Open file error", 500}
+		return "", &domain.AppError{err, "Open file error", 500}
 	}
 
 	//		compress.UnTarGz(loadArchiveName, loadDataPath)
 	err = compress.Unzip(loadArchiveName, loadDataPath)
 	if err != nil {
-		log.Println(err)
-		return "", &domain.AppError{nil, "Failed to extract file", 500}
+		return "", &domain.AppError{err, "Failed to extract file", 500}
+	}
+
+	imageId, appErr := BuildImage(loadId)
+	if appErr != nil {
+		return "", appErr
 	}
 
 	loadData := domain.LoadData{
-		ID:   loadId,
-		Name: tagName,
-		Tag:  tagVersion,
+		ID:      loadId,
+		Name:    tagName,
+		Tag:     tagVersion,
+		ImageId: imageId,
 	}
 
 	outJson, err := os.Create(loadDataJson)
 	if err != nil {
-		log.Println(err)
-		return "", &domain.AppError{nil, "Failed to create data file", 500}
+		return "", &domain.AppError{err, "Failed to create data file", 500}
 	}
 	defer outJson.Close()
 
@@ -117,27 +118,23 @@ func ExecuteBuild(tagName, tagVersion string, r *http.Request) (dockloadId strin
 	//		bl, _ := json.Marshal(loadData)
 	//		os.Stdout.Write(bl)
 
-	appErr := BuildImage(loadId)
-	if appErr != nil {
-		return "", appErr
-	}
 	// return loadId
 	// TODO find a better solution as using error return structure to return correct data
 	return loadId, &domain.AppError{nil, loadId, 200}
 }
 
-func BuildImage(dockloadId string) *domain.AppError {
+func BuildImage(dockloadId string) (imageId string, appErr *domain.AppError) {
 
 	dockloadPath := config.DataPath + "/" + dockloadId
 
 	if !config.Exists(dockloadPath + "/Dockerfile") {
-		return &domain.AppError{nil, "Dockerfile not found in " + dockloadPath, 404}
+		return "", &domain.AppError{nil, "Dockerfile not found in " + dockloadPath, 404}
 	}
 
-	// check if an images is present with the
+	// check if an images is present with the dockloadId
 	outLines, err := docker.ExecuteDocker(dockloadPath, "images")
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 
 	alreadyBuild := false
@@ -145,7 +142,6 @@ func BuildImage(dockloadId string) *domain.AppError {
 		if strings.HasPrefix(line, dockloadId) {
 			alreadyBuild = true
 		}
-		//		println(line)
 	}
 
 	// if the image is not present build it
@@ -153,14 +149,16 @@ func BuildImage(dockloadId string) *domain.AppError {
 	if !alreadyBuild {
 		outLines, err = docker.Build(dockloadPath, dockloadId)
 		if err != nil {
-			for _, line := range outLines {
-				println(line)
-			}
-
-			log.Fatal(err)
+			return "", err
+			//			for _, line := range outLines {
+			//				println(line)
+			//			}
+			//			log.Fatal(err)
 		}
 
+		// find image id
+		return strings.Split(outLines[len(outLines)-1], " ")[2], nil
 	}
 
-	return nil
+	return "", nil
 }

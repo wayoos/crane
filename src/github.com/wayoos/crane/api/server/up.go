@@ -46,7 +46,7 @@ func UpOnly(params martini.Params) (int, string) {
 
 func ExecuteUp(dockloadId string) *domain.AppError {
 
-	appErr := BuildImage(dockloadId)
+	_, appErr := BuildImage(dockloadId)
 	if appErr != nil {
 		return appErr
 	}

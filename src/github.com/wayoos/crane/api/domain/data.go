@@ -7,9 +7,10 @@ type AppError struct {
 }
 
 type LoadData struct {
-	ID   string
-	Name string
-	Tag  string
+	ID      string
+	Name    string
+	Tag     string
+	ImageId string
 }
 
 type ExecData struct {

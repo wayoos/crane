@@ -3,15 +3,17 @@ package docker
 import (
 	"bufio"
 	"bytes"
+	"github.com/wayoos/crane/api/domain"
 	"os/exec"
 	"strings"
+	"syscall"
 )
 
 const (
 	DockerCommandName = "docker"
 )
 
-func ExecuteDocker(path string, args ...string) (out []string, err error) {
+func ExecuteDocker(path string, args ...string) (out []string, appErr *domain.AppError) {
 	cmd := exec.Command(DockerCommandName, args...)
 	if path != "" {
 		cmd.Dir = path
@@ -27,14 +29,20 @@ func ExecuteDocker(path string, args ...string) (out []string, err error) {
 		outLines = append(outLines, scanner.Text())
 	}
 
-	return outLines, err
+	if cmd.ProcessState.Success() {
+		return outLines, nil
+	} else {
+		status := cmd.ProcessState.Sys().(syscall.WaitStatus)
+		return outLines, &domain.AppError{err, "Docker command error.", status.ExitStatus()}
+	}
+
 }
 
-func Build(path string, repositoryName string) (out []string, err error) {
+func Build(path string, repositoryName string) (out []string, appErr *domain.AppError) {
 	return ExecuteDocker(path, "build", "-t", repositoryName, ".")
 }
 
-func IsRunning(name string) (running bool, err error) {
+func IsRunning(name string) (running bool, appErr *domain.AppError) {
 	outLines, err := ExecuteDocker("", "ps")
 	alreadyBuild := false
 	for _, line := range outLines {
@@ -47,7 +55,7 @@ func IsRunning(name string) (running bool, err error) {
 	return alreadyBuild, err
 }
 
-func IsExited(name string) (running bool, err error) {
+func IsExited(name string) (running bool, appErr *domain.AppError) {
 	outLines, err := ExecuteDocker("", "ps", "-a")
 	alreadyBuild := false
 	for _, line := range outLines {
@@ -59,18 +67,18 @@ func IsExited(name string) (running bool, err error) {
 	return alreadyBuild, err
 }
 
-func Run(path string, repositoryName string) (out []string, err error) {
+func Run(path string, repositoryName string) (out []string, err *domain.AppError) {
 	return ExecuteDocker(path, "run", "--detach=true", "--name", repositoryName, repositoryName)
 }
 
-func Start(container string) (out []string, err error) {
+func Start(container string) (out []string, err *domain.AppError) {
 	return ExecuteDocker("", "start", container)
 }
 
-func Stop(container string) (out []string, err error) {
+func Stop(container string) (out []string, err *domain.AppError) {
 	return ExecuteDocker("", "stop", container)
 }
 
-func RemoveContainer(container string) (out []string, err error) {
+func RemoveContainer(container string) (out []string, err *domain.AppError) {
 	return ExecuteDocker("", "rm", container)
 }

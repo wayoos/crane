@@ -22,9 +22,9 @@ func PsCommand(c *cli.Context) {
 
 		// Format in tab-separated columns with a tab stop of 8.
 		w.Init(os.Stdout, 0, 8, 0, '\t', 0)
-		fmt.Fprintln(w, "DOCKLOAD ID\tSTATUS\tNAME\tTAG")
+		fmt.Fprintln(w, "DOCKLOAD ID\tIMAGE ID\tSTATUS\tNAME\tTAG")
 		for _, loadData := range result {
-			fmt.Fprintln(w, loadData.ID+"\t"+""+"\t"+loadData.Name+"\t"+loadData.Tag)
+			fmt.Fprintln(w, loadData.ID+"\t"+loadData.ImageId+"\t"+""+"\t"+loadData.Name+"\t"+loadData.Tag)
 		}
 		w.Flush()
 
