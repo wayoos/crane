@@ -17,17 +17,19 @@ func Up(params martini.Params, r *http.Request) (int, string) {
 	dockloadId, appErr := ExecuteBuild(tagName, tagVersion, r)
 
 	if appErr != nil {
+		log.Println(appErr.Error)
 		return appErr.Code, appErr.Message
 	}
 
-	dockloadPath := config.DataPath + "/" + dockloadId
+	//	dockloadPath := config.DataPath + "/" + dockloadId
 
-	appErr = ExecuteUp(dockloadPath)
+	appErr = ExecuteUp(dockloadId)
 	if appErr != nil {
+		log.Println(appErr.Error)
 		return appErr.Code, appErr.Message
 	}
 
-	return 204, ""
+	return 200, dockloadId
 }
 
 func UpOnly(params martini.Params) (int, string) {
@@ -46,10 +48,10 @@ func UpOnly(params martini.Params) (int, string) {
 
 func ExecuteUp(dockloadId string) *domain.AppError {
 
-	_, appErr := BuildImage(dockloadId)
-	if appErr != nil {
-		return appErr
-	}
+	//	_, appErr := BuildImage(dockloadId)
+	//	if appErr != nil {
+	//		return appErr
+	//	}
 
 	dockloadPath := config.DataPath + "/" + dockloadId
 

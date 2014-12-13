@@ -49,6 +49,8 @@ func startServer(port int, craneDir string) {
 
 	m.Get("/ps", Ps)
 
+	m.Delete("/dockload/:id", Rm)
+
 	m.Post("/up", Up)
 	m.Post("/up/:name", Up)
 	m.Post("/up/:name/:tag", Up)

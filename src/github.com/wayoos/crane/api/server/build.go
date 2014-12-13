@@ -4,14 +4,12 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"github.com/go-martini/martini"
 	"github.com/wayoos/crane/api/docker"
 	"github.com/wayoos/crane/api/domain"
 	"github.com/wayoos/crane/compress"
 	"github.com/wayoos/crane/config"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -22,26 +20,24 @@ func Build(params martini.Params, r *http.Request) (int, string) {
 	tagName := params["name"]
 	tagVersion := params["tag"]
 
-	_, appErr := ExecuteBuild(tagName, tagVersion, r)
+	dockloadId, appErr := ExecuteBuild(tagName, tagVersion, r)
 
 	if appErr != nil {
 		return appErr.Code, appErr.Message
 	}
-	return 204, ""
+	return 200, dockloadId
 }
 
 func ExecuteBuild(tagName, tagVersion string, r *http.Request) (dockloadId string, errApp *domain.AppError) {
 
 	err := r.ParseForm()
 	if err != nil {
-		log.Println(err)
 		return "", &domain.AppError{nil, "Invalid zip file", 500}
 	}
 
 	file, _, err := r.FormFile("file")
 
 	if err != nil {
-		log.Println(err)
 		return "", &domain.AppError{nil, "Invalid zip file", 500}
 	}
 
@@ -55,7 +51,7 @@ func ExecuteBuild(tagName, tagVersion string, r *http.Request) (dockloadId strin
 		b := make([]byte, c)
 		_, err = rand.Read(b)
 		if err != nil {
-			fmt.Println("error:", err)
+			return "", &domain.AppError{nil, "Error when create dockloadId", 500}
 		}
 		loadId = hex.EncodeToString(b)
 
@@ -115,12 +111,7 @@ func ExecuteBuild(tagName, tagVersion string, r *http.Request) (dockloadId strin
 
 	enc.Encode(loadData)
 
-	//		bl, _ := json.Marshal(loadData)
-	//		os.Stdout.Write(bl)
-
-	// return loadId
-	// TODO find a better solution as using error return structure to return correct data
-	return loadId, &domain.AppError{nil, loadId, 200}
+	return loadId, nil
 }
 
 func BuildImage(dockloadId string) (imageId string, appErr *domain.AppError) {
@@ -131,29 +122,17 @@ func BuildImage(dockloadId string) (imageId string, appErr *domain.AppError) {
 		return "", &domain.AppError{nil, "Dockerfile not found in " + dockloadPath, 404}
 	}
 
-	// check if an images is present with the dockloadId
-	outLines, err := docker.ExecuteDocker(dockloadPath, "images")
+	isImageBuild, err := docker.IsImageBuild(dockloadId)
 	if err != nil {
 		return "", err
 	}
 
-	alreadyBuild := false
-	for _, line := range outLines {
-		if strings.HasPrefix(line, dockloadId) {
-			alreadyBuild = true
-		}
-	}
-
 	// if the image is not present build it
 
-	if !alreadyBuild {
-		outLines, err = docker.Build(dockloadPath, dockloadId)
+	if !isImageBuild {
+		outLines, err := docker.Build(dockloadPath, dockloadId)
 		if err != nil {
 			return "", err
-			//			for _, line := range outLines {
-			//				println(line)
-			//			}
-			//			log.Fatal(err)
 		}
 
 		// find image id

@@ -42,6 +42,22 @@ func Build(path string, repositoryName string) (out []string, appErr *domain.App
 	return ExecuteDocker(path, "build", "-t", repositoryName, ".")
 }
 
+func IsImageBuild(image string) (running bool, appErr *domain.AppError) {
+	// check if an images is present with the tag image
+	outLines, err := ExecuteDocker("", "images")
+	if err != nil {
+		return false, err
+	}
+
+	alreadyBuild := false
+	for _, line := range outLines {
+		if strings.HasPrefix(line, image) {
+			alreadyBuild = true
+		}
+	}
+	return alreadyBuild, nil
+}
+
 func IsRunning(name string) (running bool, appErr *domain.AppError) {
 	outLines, err := ExecuteDocker("", "ps")
 	alreadyBuild := false
@@ -81,4 +97,8 @@ func Stop(container string) (out []string, err *domain.AppError) {
 
 func RemoveContainer(container string) (out []string, err *domain.AppError) {
 	return ExecuteDocker("", "rm", container)
+}
+
+func RemoveImage(image string) (out []string, err *domain.AppError) {
+	return ExecuteDocker("", "rmi", image)
 }

@@ -30,8 +30,6 @@ func Ps(r render.Render) {
 
 		loadId := e.Value.(string)
 
-		fmt.Println("LoadId: " + loadId)
-
 		inJson, err := os.Open(config.DataPath + "/" + loadId + ".json")
 		if err != nil {
 			fmt.Println(err)
@@ -46,8 +44,6 @@ func Ps(r render.Render) {
 			fmt.Println(err)
 			return
 		}
-
-		fmt.Println(loadData.Name)
 
 		loadRecords[idx] = loadData
 		idx += 1
