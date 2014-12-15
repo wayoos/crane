@@ -65,7 +65,7 @@ func ExecuteUp(dockloadId string) *domain.AppError {
 		} else {
 			outLines, _ := docker.Run(dockloadPath, dockloadId)
 			for _, line := range outLines {
-				println(line)
+				log.Println(line)
 			}
 		}
 

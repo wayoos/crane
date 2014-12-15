@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"github.com/wayoos/crane/api/domain"
+	"log"
 	"os/exec"
 	"strings"
 	"syscall"
@@ -33,6 +34,11 @@ func ExecuteDocker(path string, args ...string) (out []string, appErr *domain.Ap
 		return outLines, nil
 	} else {
 		status := cmd.ProcessState.Sys().(syscall.WaitStatus)
+
+		for _, line := range outLines {
+			log.Println(line)
+		}
+
 		return outLines, &domain.AppError{err, "Docker command error.", status.ExitStatus()}
 	}
 

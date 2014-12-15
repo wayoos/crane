@@ -33,6 +33,10 @@ func ExecuteRm(tag string) (appErr *domain.AppError) {
 			return appErr
 		}
 
+	}
+
+	isExited, _ := docker.IsExited(imageId)
+	if isExited {
 		_, appErr = docker.RemoveContainer(imageId)
 		if appErr != nil {
 			return appErr

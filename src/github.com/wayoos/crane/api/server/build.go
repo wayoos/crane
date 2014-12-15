@@ -1,14 +1,12 @@
 package server
 
 import (
-	"crypto/rand"
-	"encoding/hex"
-	"encoding/json"
 	"github.com/go-martini/martini"
 	"github.com/wayoos/crane/api/docker"
 	"github.com/wayoos/crane/api/domain"
 	"github.com/wayoos/crane/compress"
 	"github.com/wayoos/crane/config"
+	"github.com/wayoos/crane/store"
 	"io"
 	"net/http"
 	"os"
@@ -43,32 +41,20 @@ func ExecuteBuild(tagName, tagVersion string, r *http.Request) (dockloadId strin
 
 	defer file.Close()
 
-	var loadId string = ""
-	var loadDataPath string = ""
-	// create id and folder
-	for {
-		c := 6
-		b := make([]byte, c)
-		_, err = rand.Read(b)
-		if err != nil {
-			return "", &domain.AppError{nil, "Error when create dockloadId", 500}
-		}
-		loadId = hex.EncodeToString(b)
-
-		loadDataPath = config.DataPath + "/" + loadId
-
-		if _, err := os.Stat(loadDataPath); os.IsNotExist(err) {
-			// path/to/whatever does not exist
-			break
-		}
-
+	dockloadInfo, appErr := store.Create()
+	if appErr != nil {
+		return "", appErr
 	}
-	loadDataJson := config.DataPath + "/" + loadId + ".json"
 
-	err = os.MkdirAll(loadDataPath, config.DataPathMode)
-	if err != nil {
-		return "", &domain.AppError{err, "Error creating dockload folder", 500}
+	dockloadInfo.Name = tagName
+	dockloadInfo.Tag = tagVersion
+
+	appErr = store.Save(dockloadInfo)
+	if appErr != nil {
+		return "", appErr
 	}
+
+	loadDataPath := store.Path(dockloadInfo)
 
 	//
 	loadArchiveName := loadDataPath + "/" + "load.zip"
@@ -89,29 +75,19 @@ func ExecuteBuild(tagName, tagVersion string, r *http.Request) (dockloadId strin
 		return "", &domain.AppError{err, "Failed to extract file", 500}
 	}
 
-	imageId, appErr := BuildImage(loadId)
+	imageId, appErr := BuildImage(dockloadInfo.ID)
 	if appErr != nil {
 		return "", appErr
 	}
 
-	loadData := domain.LoadData{
-		ID:      loadId,
-		Name:    tagName,
-		Tag:     tagVersion,
-		ImageId: imageId,
+	dockloadInfo.ImageId = imageId
+
+	appErr = store.Save(dockloadInfo)
+	if appErr != nil {
+		return "", appErr
 	}
 
-	outJson, err := os.Create(loadDataJson)
-	if err != nil {
-		return "", &domain.AppError{err, "Failed to create data file", 500}
-	}
-	defer outJson.Close()
-
-	enc := json.NewEncoder(outJson)
-
-	enc.Encode(loadData)
-
-	return loadId, nil
+	return dockloadInfo.ID, nil
 }
 
 func BuildImage(dockloadId string) (imageId string, appErr *domain.AppError) {
