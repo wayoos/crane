@@ -85,9 +85,9 @@ func main() {
 			ShortName: "s",
 			Usage:     "start crane server",
 			Flags: []cli.Flag{
-				cli.IntFlag{
-					Name:  "p, port",
-					Value: 2475,
+				cli.StringFlag{
+					Name:  "a, addr",
+					Value: "localhost:2475",
 					Usage: "port to listen on (default 2475)",
 				},
 				cli.StringFlag{
