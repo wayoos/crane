@@ -16,6 +16,7 @@ const (
 
 func ExecuteDocker(path string, args ...string) (out []string, appErr *domain.AppError) {
 	cmd := exec.Command(DockerCommandName, args...)
+
 	if path != "" {
 		cmd.Dir = path
 	}
@@ -89,8 +90,17 @@ func IsExited(name string) (running bool, appErr *domain.AppError) {
 	return alreadyBuild, err
 }
 
-func Run(path string, repositoryName string) (out []string, err *domain.AppError) {
-	return ExecuteDocker(path, "run", "--detach=true", "--name", repositoryName, repositoryName)
+func Run(path string, repositoryName string, args ...string) (out []string, err *domain.AppError) {
+
+	dockerArgs := []string{"run", "--detach=true", "--name", repositoryName}
+
+	for _, arg := range args {
+		dockerArgs = append(dockerArgs, arg)
+	}
+
+	dockerArgs = append(dockerArgs, repositoryName)
+
+	return ExecuteDocker(path, dockerArgs...)
 }
 
 func Start(container string) (out []string, err *domain.AppError) {

@@ -5,8 +5,11 @@ import (
 	"github.com/wayoos/crane/api/docker"
 	"github.com/wayoos/crane/api/domain"
 	"github.com/wayoos/crane/config"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 )
 
 func Up(params martini.Params, r *http.Request) (int, string) {
@@ -46,6 +49,12 @@ func UpOnly(params martini.Params) (int, string) {
 	return 204, ""
 }
 
+type CraneConfig struct {
+	Run struct {
+		Args string
+	}
+}
+
 func ExecuteUp(dockloadId string) *domain.AppError {
 
 	//	_, appErr := BuildImage(dockloadId)
@@ -63,7 +72,30 @@ func ExecuteUp(dockloadId string) *domain.AppError {
 		if isExited {
 			docker.Start(dockloadId)
 		} else {
-			outLines, _ := docker.Run(dockloadPath, dockloadId)
+
+			dockerArgs := []string{}
+
+			// load crane.yaml
+			craneConfigFile := dockloadPath + "/crane.yaml"
+			if config.Exists(craneConfigFile) {
+				craneConfig := CraneConfig{}
+				yamlFile, err := ioutil.ReadFile(craneConfigFile)
+				if err != nil {
+					log.Println("error: %v", err)
+				}
+				err = yaml.Unmarshal(yamlFile, &craneConfig)
+				if err != nil {
+					log.Println("error: %v", err)
+				}
+
+				if craneConfig.Run.Args != "" {
+					runArgs := strings.Split(craneConfig.Run.Args, " ")
+					dockerArgs = append(dockerArgs, runArgs...)
+				}
+
+			}
+
+			outLines, _ := docker.Run(dockloadPath, dockloadId, dockerArgs...)
 			for _, line := range outLines {
 				log.Println(line)
 			}
