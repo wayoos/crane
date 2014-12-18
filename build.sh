@@ -1,5 +1,7 @@
 #!/bin/bash
 
+VERSION=0.0.1
+
 # I commit this source into crane repo. I'm not happy with this but what's append if github repo are closed
 #go get github.com/codegangsta/cli
 #go get github.com/go-martini/martini
@@ -19,3 +21,8 @@ go install crane
 
 unset GOARCH
 unset GOOS
+
+mkdir -p dist
+
+cp bin/crane dist/crane_darwin_amd64
+cp bin/linux_amd64/crane dist/crane_linux_amd64
