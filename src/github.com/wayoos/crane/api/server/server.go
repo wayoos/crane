@@ -6,30 +6,33 @@ import (
 	"github.com/go-martini/martini"
 	"github.com/martini-contrib/render"
 	"github.com/wayoos/crane/config"
+	"log"
 	"os"
-	"strconv"
 )
 
 func ServerCommand(c *cli.Context) {
-	port := c.Int("port")
+	//	port := c.Int("port")
+
+	host := c.String("addr")
 
 	var craneDir string = ""
 	if c.IsSet("crane-dir") {
 		craneDir = c.String("crane-dir")
 	}
 
-	startServer(port, craneDir)
+	startServer(host, craneDir)
 }
 
-func startServer(port int, craneDir string) {
+func startServer(host string, craneDir string) {
 
 	config.InitDataPath(craneDir)
 
+	log.Println("Start crane server")
 	fmt.Printf("dataPath=%s", config.DataPath)
 	fmt.Println()
 
-	os.Setenv("PORT", strconv.Itoa(port))
-	os.Setenv("HOST", "localhost")
+	//	os.Setenv("PORT", strconv.Itoa(port))
+	//	os.Setenv("HOST", "localhost")
 
 	os.Setenv("MARTINI_ENV", martini.Prod)
 
@@ -55,5 +58,6 @@ func startServer(port int, craneDir string) {
 	m.Post("/up/:name", Up)
 	m.Post("/up/:name/:tag", Up)
 
-	m.Run()
+	//m.Run()
+	m.RunOnAddr(host)
 }
