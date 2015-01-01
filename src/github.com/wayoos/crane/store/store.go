@@ -74,3 +74,12 @@ func Save(dockloadInfo domain.LoadData) *domain.AppError {
 
 	return nil
 }
+
+// find docloadId by dockloadId, name and version
+// tag can be in the form:
+//    123456789012
+//    test
+//    test:1
+func Find(tag string) {
+
+}

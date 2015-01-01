@@ -10,6 +10,10 @@ import (
 	"syscall"
 )
 
+// TODO add this when crane server is disable
+// quimbaya:wayoos steph$ docker ps
+// FATA[0000] Cannot connect to the Docker daemon. Is 'docker -d' running on this host?
+
 func main2() {
 	cmd := exec.Command("docker", "build")
 
@@ -55,23 +59,23 @@ func main() {
 	}
 
 	app.Commands = []cli.Command{
-		{
-			Name:        "build",
-			ShortName:   "b",
-			Usage:       "crane push PATH",
-			Description: "push an image package or a crane package to the crane server",
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "tag, t",
-					Value: "",
-					Usage: "Load name (and optionally a tag) to be applied to the resulting",
-				},
-			},
-			Action: client.BuildCommand,
-		},
+		//		{
+		//			Name:        "build",
+		//			ShortName:   "b",
+		//			Usage:       "crane push PATH",
+		//			Description: "push an image package or a crane package to the crane server",
+		//			Flags: []cli.Flag{
+		//				cli.StringFlag{
+		//					Name:  "tag, t",
+		//					Value: "",
+		//					Usage: "Load name (and optionally a tag) to be applied to the resulting",
+		//				},
+		//			},
+		//			Action: client.BuildCommand,
+		//		},
 		{
 			Name:   "ps",
-			Usage:  "crane ps",
+			Usage:  "List containers",
 			Action: client.PsCommand,
 		},
 		{
@@ -110,12 +114,6 @@ func main() {
 			},
 			Action: client.UpCommand,
 		},
-		{
-			Name:      "up-local",
-			ShortName: "upl",
-			Usage:     "Create and start container localy",
-			Action:    client.UplCommand,
-		},
 	}
 
 	app.Action = func(c *cli.Context) {
@@ -131,59 +129,3 @@ func main() {
 
 	app.Run(os.Args)
 }
-
-/*
-{
-Name:      "exec",
-ShortName: "e",
-Usage:     "crane exec LOADID command...",
-Action: func(c *cli.Context) {
-loadId := c.Args().First()
-
-//fmt.Println("Execute cmd in " + loadId)
-
-host := c.GlobalString("host")
-
-var cmds []string = c.Args().Tail()
-
-l := list.New()
-
-for i := range cmds {
-//					println(cmds[i])
-
-val := cmds[i]
-split := strings.Split(val, " ")
-for si := range split {
-l.PushBack(split[si])
-}
-}
-
-cmds = make([]string, l.Len())
-
-idx := 0
-for e := l.Front(); e != nil; e = e.Next() {
-cmd := e.Value.(string)
-cmds[idx] = cmd
-idx++
-}
-
-//				for i := range cmds {
-//					println(cmds[i])
-//				}
-
-execData := domain.ExecData{
-LoadId: loadId,
-Cmd:    cmds,
-}
-
-result := domain.ExecResult{}
-resp, err := napping.Post(host+"/exec", &execData, &result, nil)
-if err != nil {
-panic(err)
-}
-if resp.Status() == 200 {
-fmt.Println(result.Out)
-}
-
-},
-},*/

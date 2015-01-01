@@ -37,21 +37,19 @@ func UpCommand(c *cli.Context) {
 
 func UpCommand(c *cli.Context) {
 
+	path, _ := os.Getwd()
 	if c.Args().Present() {
-		host := c.GlobalString("host")
-
-		path := c.Args().First()
-
-		var tag string
-		if c.IsSet("tag") {
-			tag = c.String("tag")
-		}
-
-		BuildSend("up", host, path, tag)
-	} else {
-		cli.ShowCommandHelp(c, "up")
+		path = c.Args().First()
+		path, _ = filepath.Abs(path)
 	}
 
+	host := c.GlobalString("host")
+	var tag string
+	if c.IsSet("tag") {
+		tag = c.String("tag")
+	}
+
+	BuildSend("up", host, path, tag)
 }
 
 func UplCommand(c *cli.Context) {
