@@ -1,11 +1,13 @@
 package store
 
 import (
+	"container/list"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"github.com/wayoos/crane/api/domain"
 	"github.com/wayoos/crane/config"
+	"io/ioutil"
 	"os"
 )
 
@@ -73,6 +75,43 @@ func Save(dockloadInfo domain.LoadData) *domain.AppError {
 	enc.Encode(dockloadInfo)
 
 	return nil
+}
+
+func List() ([]domain.LoadData, *domain.AppError) {
+	l := list.New()
+
+	files, _ := ioutil.ReadDir(config.DataPath)
+	for _, f := range files {
+		if f.IsDir() {
+			l.PushBack(f.Name())
+		}
+	}
+
+	var loadRecords = make([]domain.LoadData, l.Len())
+
+	idx := 0
+	for e := l.Front(); e != nil; e = e.Next() {
+
+		loadId := e.Value.(string)
+
+		inJson, err := os.Open(config.DataPath + "/" + loadId + ".json")
+		if err != nil {
+			return []domain.LoadData{}, &domain.AppError{err, "Error opening data store", 500}
+		}
+		defer inJson.Close()
+
+		decode := json.NewDecoder(inJson)
+		var loadData domain.LoadData
+		err = decode.Decode(&loadData)
+		if err != nil {
+			return []domain.LoadData{}, &domain.AppError{err, "Error opening data store", 500}
+		}
+
+		loadRecords[idx] = loadData
+		idx += 1
+	}
+
+	return loadRecords, nil
 }
 
 // find docloadId by dockloadId, name and version
