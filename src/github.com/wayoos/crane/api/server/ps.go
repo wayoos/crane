@@ -1,53 +1,14 @@
 package server
 
 import (
-	"container/list"
-	"encoding/json"
-	"fmt"
 	"github.com/martini-contrib/render"
-	"github.com/wayoos/crane/api/domain"
-	"github.com/wayoos/crane/config"
-	"io/ioutil"
-	"os"
+	"github.com/wayoos/crane/store"
 )
 
 func Ps(r render.Render) {
-
-	l := list.New()
-
-	files, _ := ioutil.ReadDir(config.DataPath)
-	for _, f := range files {
-		if f.IsDir() {
-			fmt.Println(f.Name())
-			l.PushBack(f.Name())
-		}
+	loadRecords, appErr := store.List()
+	if appErr != nil {
+		r.Error(appErr.Code)
 	}
-
-	var loadRecords = make([]domain.LoadData, l.Len())
-
-	idx := 0
-	for e := l.Front(); e != nil; e = e.Next() {
-
-		loadId := e.Value.(string)
-
-		inJson, err := os.Open(config.DataPath + "/" + loadId + ".json")
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		defer inJson.Close()
-
-		decode := json.NewDecoder(inJson)
-		var loadData domain.LoadData
-		err = decode.Decode(&loadData)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
-		loadRecords[idx] = loadData
-		idx += 1
-	}
-
 	r.JSON(200, loadRecords)
 }
