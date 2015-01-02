@@ -7,10 +7,10 @@ type AppError struct {
 }
 
 type LoadData struct {
-	ID      string
+	ID      string // crane load ID
 	Name    string
 	Tag     string
-	ImageId string
+	ImageId string // docker image ID
 }
 
 type ExecData struct {

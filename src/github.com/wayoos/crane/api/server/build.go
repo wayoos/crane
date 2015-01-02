@@ -14,20 +14,14 @@ import (
 )
 
 func Build(params martini.Params, r *http.Request) (int, string) {
-
-	tagName := params["name"]
-	tagVersion := params["tag"]
-
-	dockloadId, appErr := ExecuteBuild(tagName, tagVersion, r)
-
+	loadId, appErr := ExecuteBuild(params["name"], params["tag"], r)
 	if appErr != nil {
 		return appErr.Code, appErr.Message
 	}
-	return 200, dockloadId
+	return 200, loadId
 }
 
-func ExecuteBuild(tagName, tagVersion string, r *http.Request) (dockloadId string, errApp *domain.AppError) {
-
+func ExecuteBuild(loadName, loadTag string, r *http.Request) (loadId string, errApp *domain.AppError) {
 	err := r.ParseForm()
 	if err != nil {
 		return "", &domain.AppError{nil, "Invalid zip file", 500}
@@ -41,22 +35,12 @@ func ExecuteBuild(tagName, tagVersion string, r *http.Request) (dockloadId strin
 
 	defer file.Close()
 
-	dockloadInfo, appErr := store.Create()
+	loadData, appErr := store.Create(loadName, loadTag)
 	if appErr != nil {
 		return "", appErr
 	}
 
-	dockloadInfo.Name = tagName
-	dockloadInfo.Tag = tagVersion
-
-	appErr = store.Save(dockloadInfo)
-	if appErr != nil {
-		return "", appErr
-	}
-
-	loadDataPath := store.Path(dockloadInfo)
-
-	//
+	loadDataPath := store.Path(loadData)
 	loadArchiveName := loadDataPath + "/" + "load.zip"
 
 	out, err := os.Create(loadArchiveName)
@@ -75,19 +59,19 @@ func ExecuteBuild(tagName, tagVersion string, r *http.Request) (dockloadId strin
 		return "", &domain.AppError{err, "Failed to extract file", 500}
 	}
 
-	imageId, appErr := BuildImage(dockloadInfo.ID)
+	imageId, appErr := BuildImage(loadData.ID)
 	if appErr != nil {
 		return "", appErr
 	}
 
-	dockloadInfo.ImageId = imageId
+	loadData.ImageId = imageId
 
-	appErr = store.Save(dockloadInfo)
+	appErr = store.Save(loadData)
 	if appErr != nil {
 		return "", appErr
 	}
 
-	return dockloadInfo.ID, nil
+	return loadData.ID, nil
 }
 
 func BuildImage(dockloadId string) (imageId string, appErr *domain.AppError) {

@@ -4,7 +4,7 @@ import (
 	"github.com/go-martini/martini"
 	"github.com/wayoos/crane/api/docker"
 	"github.com/wayoos/crane/api/domain"
-	"github.com/wayoos/crane/config"
+	"github.com/wayoos/crane/store"
 	"log"
 	"os"
 )
@@ -19,11 +19,17 @@ func Rm(params martini.Params) (int, string) {
 	return 204, ""
 }
 
-func ExecuteRm(tag string) (appErr *domain.AppError) {
+func ExecuteRm(tag2 string) (appErr *domain.AppError) {
 	// find dockloadId
-	loadDataPath := config.DataPath + "/" + tag
 
-	imageId := tag
+	dockloadData, appErr := store.Find(tag2)
+	if appErr != nil {
+		return appErr
+	}
+
+	loadDataPath := store.Path(dockloadData)
+
+	imageId := dockloadData.ID
 
 	isRunning, _ := docker.IsRunning(imageId)
 
@@ -35,8 +41,8 @@ func ExecuteRm(tag string) (appErr *domain.AppError) {
 
 	}
 
-	isExited, _ := docker.IsExited(imageId)
-	if isExited {
+	hasContainer, _ := docker.HasContainer(imageId)
+	if hasContainer {
 		_, appErr = docker.RemoveContainer(imageId)
 		if appErr != nil {
 			return appErr

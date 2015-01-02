@@ -9,13 +9,29 @@ import (
 	"github.com/wayoos/crane/config"
 	"io/ioutil"
 	"os"
+	"strings"
 )
 
-func Path(dockloadInfo domain.LoadData) string {
-	return config.DataPath + "/" + dockloadInfo.ID
+const (
+	LoadNotFound     = 404
+	LoadAlreadyExist = 403
+)
+
+func Path(loadData domain.LoadData) string {
+	return pathById(loadData.ID)
 }
 
-func Create() (dockloadData domain.LoadData, errApp *domain.AppError) {
+func pathById(loadId string) string {
+	return config.DataPath + "/" + loadId
+}
+
+func Create(loadName, loadTag string) (loadData domain.LoadData, errApp *domain.AppError) {
+
+	// check if already exist
+	_, appErr := findByNameTag(loadName, loadTag)
+	if appErr == nil || appErr.Code != LoadNotFound {
+		return domain.LoadData{}, &domain.AppError{nil, "Load with this tag already exist.", LoadAlreadyExist}
+	}
 
 	var loadId string
 	var loadDataPath string
@@ -30,7 +46,7 @@ func Create() (dockloadData domain.LoadData, errApp *domain.AppError) {
 		}
 		loadId = hex.EncodeToString(b)
 
-		loadDataPath = config.DataPath + "/" + loadId
+		loadDataPath = pathById(loadId)
 
 		if _, err := os.Stat(loadDataPath); os.IsNotExist(err) {
 			// path/to/whatever does not exist
@@ -44,11 +60,13 @@ func Create() (dockloadData domain.LoadData, errApp *domain.AppError) {
 		return domain.LoadData{}, &domain.AppError{err, "Error creating dockload folder", 500}
 	}
 
-	loadData := domain.LoadData{
-		ID: loadId,
+	loadData = domain.LoadData{
+		ID:   loadId,
+		Name: loadName,
+		Tag:  loadTag,
 	}
 
-	appErr := Save(loadData)
+	appErr = Save(loadData)
 	if appErr != nil {
 		return domain.LoadData{}, appErr
 	}
@@ -56,13 +74,13 @@ func Create() (dockloadData domain.LoadData, errApp *domain.AppError) {
 	return loadData, nil
 }
 
-func Save(dockloadInfo domain.LoadData) *domain.AppError {
+func Save(loadData domain.LoadData) *domain.AppError {
 
-	if dockloadInfo.ID == "" {
+	if loadData.ID == "" {
 		return &domain.AppError{nil, "Invalid dockloadId", 400}
 	}
 
-	loadDataJson := config.DataPath + "/" + dockloadInfo.ID + ".json"
+	loadDataJson := config.DataPath + "/" + loadData.ID + ".json"
 
 	outJson, err := os.Create(loadDataJson)
 	if err != nil {
@@ -72,7 +90,7 @@ func Save(dockloadInfo domain.LoadData) *domain.AppError {
 
 	enc := json.NewEncoder(outJson)
 
-	enc.Encode(dockloadInfo)
+	enc.Encode(loadData)
 
 	return nil
 }
@@ -119,6 +137,36 @@ func List() ([]domain.LoadData, *domain.AppError) {
 //    123456789012
 //    test
 //    test:1
-func Find(tag string) {
+//    test:*
+func Find(query string) (domain.LoadData, *domain.AppError) {
+	nameOrId := query
+	tag := ""
+	querySplit := strings.Split(query, ":")
+	if len(querySplit) > 1 {
+		nameOrId = querySplit[0]
+		tag = querySplit[1]
+	}
+	return findByNameTag(nameOrId, tag)
+}
 
+func findByNameTag(nameOrId, tag string) (domain.LoadData, *domain.AppError) {
+	loadRecords, appErr := List()
+	if appErr != nil {
+		return domain.LoadData{}, appErr
+	}
+
+	for _, loadRecord := range loadRecords {
+		if loadRecord.ID == nameOrId {
+			return loadRecord, nil
+		} else if loadRecord.Name == nameOrId {
+			// TODO add support to remove all load with same name, we should return a list of matching loaddata
+			//if tag == "*" {
+			//	return loadRecord, nil
+			if loadRecord.Tag == tag {
+				return loadRecord, nil
+			}
+		}
+	}
+
+	return domain.LoadData{}, &domain.AppError{nil, "Load not found.", LoadNotFound}
 }

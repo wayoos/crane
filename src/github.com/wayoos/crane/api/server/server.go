@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"github.com/codegangsta/cli"
 	"github.com/go-martini/martini"
 	"github.com/martini-contrib/render"
@@ -11,8 +10,6 @@ import (
 )
 
 func ServerCommand(c *cli.Context) {
-	//	port := c.Int("port")
-
 	host := c.String("addr")
 
 	var craneDir string = ""
@@ -27,18 +24,15 @@ func startServer(host string, craneDir string) {
 
 	config.InitDataPath(craneDir)
 
-	log.Println("Start crane server")
-	fmt.Printf("dataPath=%s", config.DataPath)
-	fmt.Println()
-
-	//	os.Setenv("PORT", strconv.Itoa(port))
-	//	os.Setenv("HOST", "localhost")
+	log.Println("Start crane server (dataPath=" + config.DataPath + ")")
 
 	os.Setenv("MARTINI_ENV", martini.Prod)
 
 	martini.Env = martini.Prod
 
-	m := martini.Classic()
+	m := Classic()
+
+	//	m.Martini.logger = log.New(os.Stdout, "[crane] ", 0)
 
 	m.Use(render.Renderer(render.Options{
 		//	Directory: "templates", // Specify what path to load the templates from.
@@ -60,4 +54,15 @@ func startServer(host string, craneDir string) {
 
 	//m.Run()
 	m.RunOnAddr(host)
+}
+
+func Classic() *martini.ClassicMartini {
+	r := martini.NewRouter()
+	m := martini.New()
+	//	m.Use(martini.Logger())
+	m.Use(martini.Recovery())
+	//	m.Use(martini.Static("public"))
+	m.MapTo(r, (*martini.Routes)(nil))
+	m.Action(r.Handle)
+	return &martini.ClassicMartini{m, r}
 }

@@ -59,20 +59,20 @@ func main() {
 	}
 
 	app.Commands = []cli.Command{
-		//		{
-		//			Name:        "build",
-		//			ShortName:   "b",
-		//			Usage:       "crane push PATH",
-		//			Description: "push an image package or a crane package to the crane server",
-		//			Flags: []cli.Flag{
-		//				cli.StringFlag{
-		//					Name:  "tag, t",
-		//					Value: "",
-		//					Usage: "Load name (and optionally a tag) to be applied to the resulting",
-		//				},
-		//			},
-		//			Action: client.BuildCommand,
-		//		},
+		{
+			Name:        "build",
+			ShortName:   "b",
+			Usage:       "Create container",
+			Description: "push an image package or a crane package to the crane server",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "tag, t",
+					Value: "",
+					Usage: "Load name (and optionally a tag) to be applied to the resulting",
+				},
+			},
+			Action: client.BuildCommand,
+		},
 		{
 			Name:   "ps",
 			Usage:  "List containers",

@@ -68,8 +68,8 @@ func ExecuteUp(dockloadId string) *domain.AppError {
 	isRunning, _ := docker.IsRunning(dockloadId)
 	if !isRunning {
 
-		isExited, err := docker.IsExited(dockloadId)
-		if isExited {
+		hasContainer, err := docker.HasContainer(dockloadId)
+		if hasContainer {
 			docker.Start(dockloadId)
 		} else {
 
@@ -92,7 +92,6 @@ func ExecuteUp(dockloadId string) *domain.AppError {
 					runArgs := strings.Split(craneConfig.Run.Args, " ")
 					dockerArgs = append(dockerArgs, runArgs...)
 				}
-
 			}
 
 			outLines, _ := docker.Run(dockloadPath, dockloadId, dockerArgs...)

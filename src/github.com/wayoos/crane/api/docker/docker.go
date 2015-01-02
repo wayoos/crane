@@ -78,7 +78,7 @@ func IsRunning(name string) (running bool, appErr *domain.AppError) {
 	return alreadyBuild, err
 }
 
-func IsExited(name string) (running bool, appErr *domain.AppError) {
+func IsExited2(name string) (running bool, appErr *domain.AppError) {
 	outLines, err := ExecuteDocker("", "ps", "-a")
 	alreadyBuild := false
 	for _, line := range outLines {
@@ -88,6 +88,18 @@ func IsExited(name string) (running bool, appErr *domain.AppError) {
 		}
 	}
 	return alreadyBuild, err
+}
+
+func HasContainer(name string) (hasContainer bool, appErr *domain.AppError) {
+	outLines, err := ExecuteDocker("", "ps", "-a")
+	hasContainer = false
+	for _, line := range outLines {
+		line = strings.TrimSpace(line)
+		if strings.HasSuffix(line, name) {
+			hasContainer = true
+		}
+	}
+	return hasContainer, err
 }
 
 func Run(path string, repositoryName string, args ...string) (out []string, err *domain.AppError) {
