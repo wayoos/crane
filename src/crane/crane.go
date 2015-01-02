@@ -48,7 +48,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "crane"
 	app.Usage = "crane [command]"
-	app.Version = "0.0.2"
+	app.Version = "0.0.3-beta"
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{

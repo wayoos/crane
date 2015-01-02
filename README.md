@@ -34,5 +34,5 @@ crane up
 ## Installation
 
 ```shell
-curl -L https://github.com/wayoos/crane/releases/download/0.0.1/crane-`uname -s`-`uname -m` > /usr/local/bin/crane; chmod +x /usr/local/bin/crane
+curl -L https://github.com/wayoos/crane/releases/download/0.0.2/crane-`uname -s`-`uname -m` > /usr/local/bin/crane; chmod +x /usr/local/bin/crane
 ```
