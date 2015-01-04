@@ -59,7 +59,7 @@ function d_release() {
         --user wayoos \
         --repo crane \
         --tag $VERSION \
-        --name "Crane v${VERSION}" \
+        --name "${VERSION}" \
         --description "Crane release v${VERSION}" \
 
     bin/github-release upload \
